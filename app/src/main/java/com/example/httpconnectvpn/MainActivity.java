@@ -4,10 +4,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -34,6 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
     private boolean connected = false;
+    private SharedPreferences prefs;
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
@@ -48,12 +49,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(state);
         setContentView(R.layout.activity_main);
 
+        prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
+
         View mainView = findViewById(R.id.mainRoot);
         if (mainView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, insets) -> {
                 int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
                 int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-                
                 v.setPadding(
                     v.getPaddingLeft(),
                     statusBarHeight,
@@ -74,47 +76,38 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // เปิด Drawer เมื่อกดปุ่มแฮมเบอร์เกอร์
+        // โหลดค่า Proxy ที่เคยบันทึกไว้
+        hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
+        portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+
         if (toolbar != null && drawerLayout != null) {
-            toolbar.setNavigationOnClickListener(v -> {
-                drawerLayout.openDrawer(GravityCompat.START);
-            });
+            toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
-        // จัดการเหตุการณ์เมื่อคลิกเลือกรายการใน Drawer
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.drawer_settings) {
-                    Toast.makeText(this, "เปิดหน้าตั้งค่า", Toast.LENGTH_SHORT).show();
+                    startActivity(new Intent(MainActivity.this, SettingsActivity.class));
                 } else if (id == R.id.drawer_about) {
-                    Toast.makeText(this, "เปิดหน้าเกี่ยวกับ", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "AetherLink / HTTP VPN v1.0", Toast.LENGTH_SHORT).show();
                 }
                 drawerLayout.closeDrawer(GravityCompat.START);
                 return true;
             });
         }
 
-        // จัดการคลิกเมนูด้านล่าง 5 รายการ
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
-                if (id == R.id.nav_home) {
-                    return true;
-                } else if (id == R.id.nav_proxy) {
-                    return true;
-                } else if (id == R.id.nav_payload) {
-                    return true;
-                } else if (id == R.id.nav_apps) {
-                    return true;
-                } else if (id == R.id.nav_logs) {
+                if (id == R.id.nav_payload || id == R.id.nav_proxy) {
+                    startActivity(new Intent(MainActivity.this, SettingsActivity.class));
                     return true;
                 }
-                return false;
+                return true;
             });
         }
 
-        // ปรับการลงทะเบียน Receiver ให้รองรับ Android ทุกเวอร์ชันโดยไม่ crash
         IntentFilter filter = new IntentFilter(ProxyVpnService.ACTION_STATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -133,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
             updateUi();
             return;
         }
+
         String host = hostInput.getText().toString().trim();
         int port;
         try {
@@ -140,10 +134,15 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             port = 8080;
         }
+
         if (host.isEmpty() || port < 1 || port > 65535) {
             Toast.makeText(this, "กรุณาตรวจสอบ Proxy host และ port", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // บันทึก Proxy Host / Port ลง SharedPreferences
+        prefs.edit().putString("proxy_host", host).putInt("proxy_port", port).apply();
+
         Intent prepare = VpnService.prepare(this);
         if (prepare != null) {
             startActivityForResult(prepare, VPN_REQUEST);
@@ -156,12 +155,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int r, int result, Intent data) {
         super.onActivityResult(r, result, data);
         if (r == VPN_REQUEST && result == RESULT_OK) {
-            startVpn(hostInput.getText().toString().trim(), Integer.parseInt(portInput.getText().toString().trim()));
+            String host = hostInput.getText().toString().trim();
+            int port = 8080;
+            try {
+                port = Integer.parseInt(portInput.getText().toString().trim());
+            } catch (Exception ignored) {}
+            startVpn(host, port);
         }
     }
 
     private void startVpn(String host, int port) {
-        Intent i = new Intent(this, ProxyVpnService.class).putExtra("host", host).putExtra("port", port);
+        Intent i = new Intent(this, ProxyVpnService.class)
+                .putExtra("host", host)
+                .putExtra("port", port);
         ContextCompat.startForegroundService(this, i);
         connected = true;
         updateUi();
@@ -169,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUi() {
         connectButton.setText(connected ? "ตัดการเชื่อมต่อ" : "เชื่อมต่อ");
-        statusText.setText(connected ? "กำลังเชื่อมต่อ" : "ยังไม่เชื่อม");
+        statusText.setText(connected ? "เชื่อมต่อสำเร็จ" : "ยังไม่เชื่อม");
         proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · HTTP");
     }
 

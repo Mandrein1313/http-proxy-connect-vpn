@@ -2,32 +2,39 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- เพิ่ม Permission สำหรับ Foreground Service ของ VPN -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
-        android:theme="@style/Theme.HttpConnectVpn"
-        android:label="AetherLink"
         android:allowBackup="true"
-        android:supportsRtl="true">
+        android:label="AetherLink"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.HttpConnectVpn">
 
+        <!-- 1. MainActivity (หน้าแรก) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- 2. SettingsActivity (หน้าตั้งค่า - ย้ายออกมาไว้นอก MainActivity) -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="ตั้งค่าระบบ"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <!-- 3. ProxyVpnService (บริการ VPN) -->
         <service
             android:name=".ProxyVpnService"
-            android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
@@ -35,5 +42,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="vpn_tunnel" />
         </service>
+
     </application>
 </manifest>
