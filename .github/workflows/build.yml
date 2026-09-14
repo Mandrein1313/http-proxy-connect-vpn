@@ -22,14 +22,13 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Gradle
+    - name: Setup Gradle 8.13
       uses: gradle/actions/setup-gradle@v4
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      with:
+        gradle-version: '8.13'
 
     - name: Clean & Build Debug APK
-      run: ./gradlew clean assembleDebug --no-daemon --build-cache
+      run: gradle clean assembleDebug --no-daemon --build-cache
 
     - name: Generate Timestamp
       id: timestamp
@@ -44,6 +43,6 @@ jobs:
         prerelease: false
         make_latest: true
         overwrite_files: true
-        files: app/build/outputs/apk/debug/*.apk
+        files: "**/build/outputs/apk/**/*.apk"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
