@@ -6,8 +6,7 @@
     android:orientation="vertical"
     android:background="@color/bg">
 
-    <!-- เพิ่ม Toolbar ด้านบนสุด -->
-    <androidx.appcompat.widget.Toolbar
+    <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
@@ -20,7 +19,7 @@
             android:textColor="@color/muted"
             android:textSize="12sp"
             android:letterSpacing=".18" />
-    </androidx.appcompat.widget.Toolbar>
+    </com.google.android.material.appbar.MaterialToolbar>
 
     <ScrollView
         android:layout_width="match_parent"
