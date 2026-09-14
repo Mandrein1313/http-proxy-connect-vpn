@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
@@ -26,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView statusText, proxyText;
     private EditText hostInput, portInput;
     private BottomNavigationView bottomNavigationView;
+    private MaterialToolbar toolbar;
     private boolean connected = false;
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -57,12 +59,20 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        toolbar = findViewById(R.id.toolbar);
         connectButton = findViewById(R.id.connectButton);
         statusText = findViewById(R.id.statusText);
         proxyText = findViewById(R.id.proxyText);
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
+
+        // ดักฟังการกดปุ่มเมนูแฮมเบอร์เกอร์
+        if (toolbar != null) {
+            toolbar.setNavigationOnClickListener(v -> {
+                Toast.makeText(MainActivity.this, "กดเมนูแฮมเบอร์เกอร์", Toast.LENGTH_SHORT).show();
+            });
+        }
 
         // จัดการคลิกเมนูด้านล่าง 5 รายการ
         if (bottomNavigationView != null) {
