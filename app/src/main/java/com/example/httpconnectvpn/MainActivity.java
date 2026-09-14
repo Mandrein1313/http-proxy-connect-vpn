@@ -1,11 +1,11 @@
 package com.example.httpconnectvpn;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.VpnService;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -13,10 +13,12 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity; // <-- เปลี่ยนเป็น AppCompatActivity
+import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity { // <-- เปลี่ยนจาก Activity เป็น AppCompatActivity
     private static final int VPN_REQUEST = 1001;
     private Button connectButton;
     private TextView statusText, proxyText;
@@ -58,7 +60,14 @@ public class MainActivity extends Activity {
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
 
-        registerReceiver(receiver, new IntentFilter(ProxyVpnService.ACTION_STATE), RECEIVER_NOT_EXPORTED);
+        // ปรับการลงทะเบียน Receiver ให้รองรับ Android ทุกเวอร์ชันโดยไม่ crash
+        IntentFilter filter = new IntentFilter(ProxyVpnService.ACTION_STATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(receiver, filter);
+        }
+
         connectButton.setOnClickListener(v -> toggleVpn());
         updateUi();
     }
@@ -99,7 +108,7 @@ public class MainActivity extends Activity {
 
     private void startVpn(String host, int port) {
         Intent i = new Intent(this, ProxyVpnService.class).putExtra("host", host).putExtra("port", port);
-        startService(i);
+        ContextCompat.startForegroundService(this, i);
         connected = true;
         updateUi();
     }
@@ -112,7 +121,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        unregisterReceiver(receiver);
+        try {
+            unregisterReceiver(receiver);
+        } catch (Exception ignored) {}
         super.onDestroy();
     }
 }

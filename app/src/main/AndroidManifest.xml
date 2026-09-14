@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- เพิ่ม Permission สำหรับ Foreground Service ของ VPN -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:theme="@style/Theme.HttpConnectVpn"
@@ -9,12 +12,10 @@
         android:allowBackup="true"
         android:supportsRtl="true">
 
-        <!-- 👇 สังเกตตรงบรรทัดนี้ที่เพิ่มเข้ามาครับ 👇 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
-        <!-- 👆 สังเกตตรงบรรทัดนี้ที่เพิ่มเข้ามาครับ 👆 -->
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -27,7 +28,9 @@
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:exported="false"
             android:foregroundServiceType="specialUse">
-            <intent-filter><action android:name="android.net.VpnService" /></intent-filter>
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="vpn_tunnel" />
