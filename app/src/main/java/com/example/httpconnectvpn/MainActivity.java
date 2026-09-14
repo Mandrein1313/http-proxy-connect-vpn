@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -80,15 +81,18 @@ public class MainActivity extends AppCompatActivity {
         hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
         portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
 
+        // เปิด Drawer เมื่อกดปุ่มแฮมเบอร์เกอร์มุมซ้ายบน
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
+        // จัดการคลิกเมนูด้านข้าง (Navigation Drawer)
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.drawer_settings) {
-                    startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                    Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+                    startActivity(intent);
                 } else if (id == R.id.drawer_about) {
                     Toast.makeText(this, "AetherLink / HTTP VPN v1.0", Toast.LENGTH_SHORT).show();
                 }
@@ -97,14 +101,22 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // จัดการคลิกเมนูด้านล่าง (Bottom Navigation)
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
-                if (id == R.id.nav_payload || id == R.id.nav_proxy) {
-                    startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                if (id == R.id.nav_home) {
+                    return true;
+                } else if (id == R.id.nav_proxy || id == R.id.nav_payload || id == R.id.nav_apps) {
+                    // เปิดหน้าตั้งค่าเมื่อกดเมนู พล็อกซี, เพย์โหลด หรือ แอป
+                    Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+                    startActivity(intent);
+                    return true;
+                } else if (id == R.id.nav_logs) {
+                    Toast.makeText(this, "หน้าบันทึก (Logs)", Toast.LENGTH_SHORT).show();
                     return true;
                 }
-                return true;
+                return false;
             });
         }
 
@@ -140,7 +152,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // บันทึก Proxy Host / Port ลง SharedPreferences
         prefs.edit().putString("proxy_host", host).putInt("proxy_port", port).apply();
 
         Intent prepare = VpnService.prepare(this);

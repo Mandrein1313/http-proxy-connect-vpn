@@ -7,7 +7,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="AetherLink"
+        android:label="HTTP VPN"
         android:supportsRtl="true"
         android:theme="@style/Theme.HttpConnectVpn">
 
