@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- แก้ไข parent ให้เป็นธีมของ AppCompat หรือ Material -->
     <style name="Theme.HttpConnectVpn" parent="Theme.AppCompat.NoActionBar">
-        <!-- ใส่สีหรือสไตล์เดิมของคุณไว้ตรงนี้ -->
         <item name="android:statusBarColor">@color/bg</item>
         <item name="android:navigationBarColor">@color/bg</item>
     </style>
