@@ -13,16 +13,19 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity; // <-- เปลี่ยนเป็น AppCompatActivity
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-public class MainActivity extends AppCompatActivity { // <-- เปลี่ยนจาก Activity เป็น AppCompatActivity
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+public class MainActivity extends AppCompatActivity {
     private static final int VPN_REQUEST = 1001;
     private Button connectButton;
     private TextView statusText, proxyText;
     private EditText hostInput, portInput;
+    private BottomNavigationView bottomNavigationView;
     private boolean connected = false;
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -59,6 +62,26 @@ public class MainActivity extends AppCompatActivity { // <-- เปลี่ย�
         proxyText = findViewById(R.id.proxyText);
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
+        bottomNavigationView = findViewById(R.id.bottomNavigation);
+
+        // จัดการคลิกเมนูด้านล่าง 5 รายการ
+        if (bottomNavigationView != null) {
+            bottomNavigationView.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    return true;
+                } else if (id == R.id.nav_proxy) {
+                    return true;
+                } else if (id == R.id.nav_payload) {
+                    return true;
+                } else if (id == R.id.nav_apps) {
+                    return true;
+                } else if (id == R.id.nav_logs) {
+                    return true;
+                }
+                return false;
+            });
+        }
 
         // ปรับการลงทะเบียน Receiver ให้รองรับ Android ทุกเวอร์ชันโดยไม่ crash
         IntentFilter filter = new IntentFilter(ProxyVpnService.ACTION_STATE);
