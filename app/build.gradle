@@ -1,0 +1,7 @@
+plugins { id 'com.android.application' }
+
+android { namespace 'com.example.httpconnectvpn'; compileSdk 35
+    defaultConfig { applicationId 'com.example.httpconnectvpn'; minSdk 23; targetSdk 35; versionCode 1; versionName '1.0' }
+}
+
+// No third-party runtime dependency: suitable for GitHub Actions builds.
