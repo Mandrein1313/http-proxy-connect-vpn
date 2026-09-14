@@ -15,11 +15,14 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.navigation.NavigationView;
 
 public class MainActivity extends AppCompatActivity {
     private static final int VPN_REQUEST = 1001;
@@ -28,6 +31,8 @@ public class MainActivity extends AppCompatActivity {
     private EditText hostInput, portInput;
     private BottomNavigationView bottomNavigationView;
     private MaterialToolbar toolbar;
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
     private boolean connected = false;
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -59,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        drawerLayout = findViewById(R.id.drawer_layout);
+        navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
         connectButton = findViewById(R.id.connectButton);
         statusText = findViewById(R.id.statusText);
@@ -67,10 +74,24 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // ดักฟังการกดปุ่มเมนูแฮมเบอร์เกอร์
-        if (toolbar != null) {
+        // เปิด Drawer เมื่อกดปุ่มแฮมเบอร์เกอร์
+        if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> {
-                Toast.makeText(MainActivity.this, "กดเมนูแฮมเบอร์เกอร์", Toast.LENGTH_SHORT).show();
+                drawerLayout.openDrawer(GravityCompat.START);
+            });
+        }
+
+        // จัดการเหตุการณ์เมื่อคลิกเลือกรายการใน Drawer
+        if (navigationView != null) {
+            navigationView.setNavigationItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.drawer_settings) {
+                    Toast.makeText(this, "เปิดหน้าตั้งค่า", Toast.LENGTH_SHORT).show();
+                } else if (id == R.id.drawer_about) {
+                    Toast.makeText(this, "เปิดหน้าเกี่ยวกับ", Toast.LENGTH_SHORT).show();
+                }
+                drawerLayout.closeDrawer(GravityCompat.START);
+                return true;
             });
         }
 
