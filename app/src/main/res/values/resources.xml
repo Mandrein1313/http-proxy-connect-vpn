@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="bg">#090B0F</color><color name="panel">#12161C</color><color name="panel2">#18232E</color><color name="text">#F3F6FA</color><color name="muted">#89919D</color><color name="accent">#86A8E7</color><color name="line">#2D3641</color>
-    <string name="app_name">AetherLink</string>
-    <style name="Theme.HttpConnectVpn" parent="android:style/Theme.Material.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">@color/accent</item><item name="android:navigationBarColor">@color/bg</item><item name="android:statusBarColor">@color/bg</item><item name="android:windowLightStatusBar">false</item></style>
-</resources>
