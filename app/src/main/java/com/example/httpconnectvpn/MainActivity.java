@@ -5,12 +5,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,8 +29,9 @@ import com.google.android.material.navigation.NavigationView;
 
 public class MainActivity extends AppCompatActivity {
     private static final int VPN_REQUEST = 1001;
-    private Button connectButton;
-    private TextView statusText, proxyText;
+    private LinearLayout btnConnect;
+    private ImageView powerIcon;
+    private TextView connectText, statusText, proxyText;
     private EditText hostInput, portInput;
     private BottomNavigationView bottomNavigationView;
     private MaterialToolbar toolbar;
@@ -70,7 +73,12 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
-        connectButton = findViewById(R.id.connectButton);
+        
+        // ผูก View ของปุ่มทรงกลมแบบใหม่
+        btnConnect = findViewById(R.id.btnConnect);
+        powerIcon = findViewById(R.id.powerIcon);
+        connectText = findViewById(R.id.connectText);
+
         statusText = findViewById(R.id.statusText);
         proxyText = findViewById(R.id.proxyText);
         hostInput = findViewById(R.id.hostInput);
@@ -108,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
                 if (id == R.id.nav_home) {
                     return true;
                 } else if (id == R.id.nav_proxy || id == R.id.nav_payload || id == R.id.nav_apps) {
-                    // เปิดหน้าตั้งค่าเมื่อกดเมนู พล็อกซี, เพย์โหลด หรือ แอป
                     Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
                     startActivity(intent);
                     return true;
@@ -127,7 +134,11 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(receiver, filter);
         }
 
-        connectButton.setOnClickListener(v -> toggleVpn());
+        // ตั้งค่า Event เมื่อกดที่กลุ่มวงกลมปุ่ม Power
+        if (btnConnect != null) {
+            btnConnect.setOnClickListener(v -> toggleVpn());
+        }
+        
         updateUi();
     }
 
@@ -185,9 +196,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUi() {
-        connectButton.setText(connected ? "ตัดการเชื่อมต่อ" : "เชื่อมต่อ");
-        statusText.setText(connected ? "เชื่อมต่อสำเร็จ" : "ยังไม่เชื่อม");
-        proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · HTTP");
+        if (connected) {
+            if (connectText != null) connectText.setText("ตัดเชื่อมต่อ");
+            if (statusText != null) statusText.setText("เชื่อมต่อสำเร็จ");
+            // เปลี่ยนสีไอคอน Power เป็นสีเขียวสดเมื่อเชื่อมต่อสำเร็จ
+            if (powerIcon != null) powerIcon.setColorFilter(Color.parseColor("#4ADE80")); 
+        } else {
+            if (connectText != null) connectText.setText("เชื่อมต่อ");
+            if (statusText != null) statusText.setText("ยังไม่เชื่อม");
+            // คืนค่าสีไอคอน Power เป็นสีเดิม
+            if (powerIcon != null) powerIcon.clearColorFilter(); 
+        }
+
+        if (proxyText != null) {
+            proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · HTTP");
+        }
     }
 
     @Override

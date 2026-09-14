@@ -16,7 +16,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_above="@id/bottomNavigation"
+            android:layout_above="@id/bottomDivider"
             android:orientation="vertical">
 
             <com.google.android.material.appbar.MaterialToolbar
@@ -49,9 +49,10 @@
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp">
 
+                    <!-- ปุ่ม Power วงกลมหลัก -->
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="200dp"
+                        android:layout_height="220dp"
                         android:layout_marginTop="16dp">
 
                         <View
@@ -66,30 +67,34 @@
                             android:layout_gravity="center"
                             android:background="@drawable/ring_inner" />
 
+                        <!-- ปุ่มกดวงกลมด้านใน -->
                         <LinearLayout
+                            android:id="@+id/btnConnect"
                             android:layout_width="120dp"
                             android:layout_height="120dp"
                             android:layout_gravity="center"
                             android:background="@drawable/power_circle"
+                            android:clickable="true"
+                            android:focusable="true"
                             android:gravity="center"
                             android:orientation="vertical">
 
-                            <TextView
+                            <!-- ไอคอน Power แบบรูปที่ 2 -->
+                            <ImageView
                                 android:id="@+id/powerIcon"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="◯"
-                                android:textColor="@color/text"
-                                android:textSize="36sp" />
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_power"
+                                app:tint="@color/text" />
 
-                            <Button
-                                android:id="@+id/connectButton"
+                            <TextView
+                                android:id="@+id/connectText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:background="@android:color/transparent"
+                                android:layout_marginTop="4dp"
                                 android:text="เชื่อมต่อ"
                                 android:textColor="@color/text"
-                                android:textSize="15sp" />
+                                android:textSize="14sp" />
                         </LinearLayout>
                     </FrameLayout>
 
@@ -188,6 +193,14 @@
                 </LinearLayout>
             </ScrollView>
         </LinearLayout>
+
+        <!-- เส้นแบ่งสีบางๆ (Divider Line) -->
+        <View
+            android:id="@+id/bottomDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_above="@id/bottomNavigation"
+            android:background="#1E293B" />
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottomNavigation"

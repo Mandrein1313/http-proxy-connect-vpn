@@ -2,12 +2,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <group android:checkableBehavior="single">
         <item
-            android:id="@+id/drawer_settings"
-            android:icon="@android:drawable/ic_menu_preferences"
-            android:title="ตั้งค่าระบบ" />
-        <item
-            android:id="@+id/drawer_about"
-            android:icon="@android:drawable/ic_menu_info_details"
-            android:title="เกี่ยวกับแอป" />
+            android:id="@+id/drawer_home"
+            android:icon="@drawable/ic_home"
+            android:title="หน้าแรก" />
     </group>
+
+    <!-- ใส่ divider ด้วยการแยก group -->
+    <item android:title="ตั้งค่า &amp; ข้อมูล">
+        <menu>
+            <item
+                android:id="@+id/drawer_settings"
+                android:icon="@drawable/ic_settings"
+                android:title="ตั้งค่าระบบ" />
+            <item
+                android:id="@+id/drawer_about"
+                android:icon="@drawable/ic_info"
+                android:title="เกี่ยวกับ" />
+        </menu>
+    </item>
 </menu>
