@@ -26,9 +26,10 @@ public class MainActivity extends Activity {
             ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, insets) -> {
                 int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
                 int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                
                 v.setPadding(
                     v.getPaddingLeft(),
-                    statusBarHeight + 16,
+                    statusBarHeight,
                     v.getPaddingRight(),
                     navBarHeight + 16
                 );
