@@ -3,5 +3,7 @@
     <color name="bg">#121212</color>
     <color name="text">#FFFFFF</color>
     <color name="muted">#888888</color>
+        <color name="toolbar_bg">#1E1E1E</color>
+
 </resources>
  

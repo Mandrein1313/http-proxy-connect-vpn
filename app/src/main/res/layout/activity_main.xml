@@ -6,20 +6,22 @@
     android:orientation="vertical"
     android:background="@color/bg">
 
-    <com.google.android.material.appbar.MaterialToolbar
+        <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg">
+        android:background="@color/toolbar_bg"> <!-- เปลี่ยนสีพื้นหลังแถบ Toolbar -->
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="H T T P  C O N N E C T  V P N"
-            android:textColor="@color/muted"
-            android:textSize="12sp"
+            android:textColor="@color/text"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:letterSpacing=".18" />
     </com.google.android.material.appbar.MaterialToolbar>
+
 
     <ScrollView
         android:layout_width="match_parent"
