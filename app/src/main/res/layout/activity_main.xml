@@ -1,3 +1,68 @@
+ปัญหาที่แท้จริงเกิดจาก 2 จุดร่วมกันครับ:
+ * ด้านบนสุด: UI ขึ้นไปชน/ซ้อนกับ Status Bar (แถบนาฬิกา/แบตเตอรี่)
+ * ด้านล่างสุด: UI ตกลงไปทับกับ Navigation Bar (แถบปุ่มกดของเครื่อง)
+เนื่องจากหน้าจอถูกตั้งค่าเป็นแบบ Edge-to-Edge (ขยายเต็มจอ) ทำให้เนื้อหาหลุดเข้าไปใต้แถบระบบทั้งบนและล่าง
+วิธีแก้ไขแบ่งเป็น 2 ส่วนตามนี้ครับ:
+1. แก้ไขไฟล์ MainActivity.java (เพื่อจัดการ Window Insets / แถบระบบ)
+เพิ่มการตั้งค่า ViewCompat.setOnApplyWindowInsetsListener เพื่อให้ Android คำนวณความสูงของแถบบนและล่างให้อัตโนมัติ โดยเปลี่ยนในส่วน onCreate ดังนี้:
+package com.example.httpconnectvpn;
+
+import android.app.Activity;
+import android.content.*;
+import android.net.VpnService;
+import android.os.Bundle;
+import android.widget.*;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
+public class MainActivity extends Activity {
+    private static final int VPN_REQUEST = 1001;
+    private Button connectButton; private TextView statusText, proxyText;
+    private EditText hostInput, portInput; private boolean connected = false;
+    private final BroadcastReceiver receiver = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) {
+        connected = i.getBooleanExtra("connected", false); updateUi();
+    }};
+
+    @Override public void onCreate(Bundle state) { 
+        super.onCreate(state); 
+        setContentView(R.layout.activity_main);
+
+        // --- เพิ่มส่วนนี้เพื่อดัน UI ให้พ้นแถบ Status Bar และ Navigation Bar ---
+        View mainView = findViewById(R.id.mainRoot);
+        if (mainView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, insets) -> {
+                int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+                int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                v.setPadding(
+                    v.getPaddingLeft(),
+                    statusBarHeight + 16, // เว้นจากขอบบนพ้น Status Bar
+                    v.getPaddingRight(),
+                    navBarHeight + 16     // เว้นจากขอบล่างพ้น Navigation Bar
+                );
+                return insets;
+            });
+        }
+        // -------------------------------------------------------------
+
+        connectButton=findViewById(R.id.connectButton); statusText=findViewById(R.id.statusText); proxyText=findViewById(R.id.proxyText);
+        hostInput=findViewById(R.id.hostInput); portInput=findViewById(R.id.portInput);
+        registerReceiver(receiver, new IntentFilter(ProxyVpnService.ACTION_STATE), RECEIVER_NOT_EXPORTED);
+        connectButton.setOnClickListener(v -> toggleVpn()); updateUi();
+    }
+    
+    private void toggleVpn() { if (connected) { stopService(new Intent(this, ProxyVpnService.class)); connected=false; updateUi(); return; }
+        String host=hostInput.getText().toString().trim(); int port; try { port=Integer.parseInt(portInput.getText().toString().trim()); } catch(Exception e) { port=8080; }
+        if (host.isEmpty() || port < 1 || port > 65535) { Toast.makeText(this,"กรุณาตรวจสอบ Proxy host และ port",Toast.LENGTH_SHORT).show(); return; }
+        Intent prepare=VpnService.prepare(this); if (prepare != null) startActivityForResult(prepare, VPN_REQUEST); else startVpn(host,port);
+    }
+    @Override protected void onActivityResult(int r,int result,Intent data) { super.onActivityResult(r,result,data); if(r==VPN_REQUEST && result==RESULT_OK) startVpn(hostInput.getText().toString().trim(), Integer.parseInt(portInput.getText().toString().trim())); }
+    private void startVpn(String host,int port) { Intent i=new Intent(this,ProxyVpnService.class).putExtra("host",host).putExtra("port",port); startService(i); connected=true; updateUi(); }
+    private void updateUi() { connectButton.setText(connected?"ตัดการเชื่อมต่อ":"เชื่อมต่อ"); statusText.setText(connected?"กำลังเชื่อมต่อ":"ยังไม่เชื่อม"); proxyText.setText(hostInput.getText().toString()+":"+portInput.getText().toString()+" · HTTP"); }
+    @Override protected void onDestroy() { unregisterReceiver(receiver); super.onDestroy(); }
+}
+
+2. แก้ไขไฟล์ activity_main.xml (เพิ่ม id และปรับขนาด)
+เพิ่ม android:id="@+id/mainRoot" ที่ LinearLayout ภายใน และปรับขนาดโครงสร้างย่อยเพื่อให้พิตกับทุกหน้าจอ:
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -6,13 +71,12 @@
     android:background="@color/bg">
 
     <LinearLayout
+        android:id="@+id/mainRoot"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp">
+        android:paddingEnd="20dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -25,33 +89,32 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:text="AetherLink"
             android:textColor="@color/text"
             android:textSize="32sp"
             android:textStyle="bold" />
 
-        <!-- ย่อขนาดวงกลมลงเพื่อให้มีพื้นที่เหลือบนหน้าจอ -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="12dp">
+            android:layout_height="200dp"
+            android:layout_marginTop="10dp">
 
             <View
-                android:layout_width="210dp"
-                android:layout_height="210dp"
+                android:layout_width="190dp"
+                android:layout_height="190dp"
                 android:layout_gravity="center"
                 android:background="@drawable/ring_outer" />
 
             <View
-                android:layout_width="170dp"
-                android:layout_height="170dp"
+                android:layout_width="150dp"
+                android:layout_height="150dp"
                 android:layout_gravity="center"
                 android:background="@drawable/ring_inner" />
 
             <LinearLayout
-                android:layout_width="140dp"
-                android:layout_height="140dp"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:orientation="vertical"
@@ -63,7 +126,7 @@
                     android:layout_height="wrap_content"
                     android:text="◯"
                     android:textColor="@color/text"
-                    android:textSize="40sp" />
+                    android:textSize="36sp" />
 
                 <Button
                     android:id="@+id/connectButton"
@@ -72,7 +135,7 @@
                     android:background="@android:color/transparent"
                     android:text="เชื่อมต่อ"
                     android:textColor="@color/text"
-                    android:textSize="16sp" />
+                    android:textSize="15sp" />
             </LinearLayout>
         </FrameLayout>
 
@@ -80,7 +143,7 @@
             android:id="@+id/statusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center"
             android:text="ยังไม่เชื่อม"
             android:textColor="@color/muted"
@@ -90,7 +153,7 @@
             android:id="@+id/proxyText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center"
             android:text="proxy.internal.example:8080 · HTTP"
             android:textColor="@color/muted"
@@ -125,18 +188,17 @@
                 android:singleLine="true" />
         </LinearLayout>
 
-        <!-- ปรับความสูงการ์ดสถานะลงเหลือ 65dp -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal"
             android:weightSum="3">
 
             <TextView
                 android:id="@+id/uploadText"
                 android:layout_width="0dp"
-                android:layout_height="65dp"
+                android:layout_height="60dp"
                 android:layout_weight="1"
                 android:gravity="center"
                 android:background="@drawable/card"
@@ -147,7 +209,7 @@
             <TextView
                 android:id="@+id/downloadText"
                 android:layout_width="0dp"
-                android:layout_height="65dp"
+                android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:gravity="center"
@@ -159,7 +221,7 @@
             <TextView
                 android:id="@+id/sessionText"
                 android:layout_width="0dp"
-                android:layout_height="65dp"
+                android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:gravity="center"
@@ -185,3 +247,4 @@
             android:textSize="11sp" />
     </LinearLayout>
 </ScrollView>
+
