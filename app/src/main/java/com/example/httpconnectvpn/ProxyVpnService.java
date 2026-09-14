@@ -33,7 +33,7 @@ public class ProxyVpnService extends VpnService implements Runnable {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("HTTP VPN Client")
                 .setContentText("กำลังทำงานและเชื่อมต่อผ่าน Proxy...")
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_launcher)
                 .setOngoing(true)
                 .build();
         startForeground(1, notification);
@@ -81,7 +81,6 @@ public class ProxyVpnService extends VpnService implements Runnable {
                         OutputStream socketOut = socket.getOutputStream();
                         InputStream socketIn = socket.getInputStream();
 
-                        // หากมีการกำหนด Custom Payload ให้ส่งคำสั่ง Handshake ไปก่อน
                         if (!payload.isEmpty()) {
                             String formattedPayload = payload.replace("[host_port]", host + ":" + port)
                                                              .replace("[protocol]", "HTTP/1.1");
@@ -89,7 +88,6 @@ public class ProxyVpnService extends VpnService implements Runnable {
                             socketOut.flush();
                         }
 
-                        // ส่งข้อมูล Traffic
                         socketOut.write(buffer, 0, length);
                         socketOut.flush();
 
