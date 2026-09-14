@@ -22,7 +22,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing=".18"
-                android:text="H T T P  C O N N E C T  V P N"
+                android:text="@string/app_name"
                 android:textColor="@color/text"
                 android:textSize="13sp"
                 android:textStyle="bold" />
@@ -40,19 +40,10 @@
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="AetherLink"
-                    android:textColor="@color/text"
-                    android:textSize="32sp"
-                    android:textStyle="bold" />
-
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
-                    android:layout_marginTop="10dp">
+                    android:layout_marginTop="16dp">
 
                     <View
                         android:layout_width="190dp"
@@ -189,7 +180,6 @@
         </ScrollView>
     </LinearLayout>
 
-    <!-- Bottom Navigation View เพิ่มด้านล่างสุด -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
