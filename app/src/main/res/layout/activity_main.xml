@@ -16,7 +16,9 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/toolbar_bg">
+            android:background="@color/toolbar_bg"
+            app:navigationIcon="@drawable/ic_hamburger"
+            app:navigationIconTint="@color/text">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -24,7 +26,7 @@
                 android:letterSpacing=".18"
                 android:text="@string/app_name"
                 android:textColor="@color/text"
-                android:textSize="13sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
         </com.google.android.material.appbar.MaterialToolbar>
 
