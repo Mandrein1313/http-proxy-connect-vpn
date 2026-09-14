@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.*;
 import android.net.VpnService;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.*;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -20,7 +21,6 @@ public class MainActivity extends Activity {
         super.onCreate(state); 
         setContentView(R.layout.activity_main);
 
-        // --- เพิ่มส่วนนี้เพื่อดัน UI ให้พ้นแถบ Status Bar และ Navigation Bar ---
         View mainView = findViewById(R.id.mainRoot);
         if (mainView != null) {
             ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, insets) -> {
@@ -28,14 +28,13 @@ public class MainActivity extends Activity {
                 int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
                 v.setPadding(
                     v.getPaddingLeft(),
-                    statusBarHeight + 16, // เว้นจากขอบบนพ้น Status Bar
+                    statusBarHeight + 16,
                     v.getPaddingRight(),
-                    navBarHeight + 16     // เว้นจากขอบล่างพ้น Navigation Bar
+                    navBarHeight + 16
                 );
                 return insets;
             });
         }
-        // -------------------------------------------------------------
 
         connectButton=findViewById(R.id.connectButton); statusText=findViewById(R.id.statusText); proxyText=findViewById(R.id.proxyText);
         hostInput=findViewById(R.id.hostInput); portInput=findViewById(R.id.portInput);
