@@ -196,4 +196,62 @@ public class ProxyVpnService extends VpnService {
             vpnInterface = null;
         }
 
-        sendLog("🛑 หยุดการทำงานของ VP
+        sendLog("🛑 หยุดการทำงานของ VPN");
+        broadcastState(false);
+        stopForeground(true);
+        stopSelf();
+    }
+
+    // =========================================================
+    // Notification & Helper
+    // =========================================================
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "VPN Service Channel",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification createNotification(String contentText) {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("AetherLink VPN")
+                .setContentText(contentText)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setOngoing(true)
+                .build();
+    }
+
+    private void updateNotification(String contentText) {
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(NOTIFICATION_ID, createNotification(contentText));
+        }
+    }
+
+    private void sendLog(String msg) {
+        Log.d(TAG, msg);
+        Intent intent = new Intent(ACTION_LOG);
+        intent.putExtra("message", msg);
+        sendBroadcast(intent);
+    }
+
+    private void broadcastState(boolean connected) {
+        Intent intent = new Intent(ACTION_STATE);
+        intent.putExtra("connected", connected);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onDestroy() {
+        stopVpn();
+        super.onDestroy();
+    }
+}
