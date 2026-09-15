@@ -49,7 +49,7 @@
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp">
 
-                    <!-- ปุ่ม Power วงกลมหลัก -->
+                    <!-- วงกลมหลัก และปุ่ม Power -->
                     <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="220dp"
@@ -67,7 +67,7 @@
                             android:layout_gravity="center"
                             android:background="@drawable/ring_inner" />
 
-                        <!-- ปุ่มกดวงกลมด้านใน -->
+                        <!-- ปุ่มกดสวิตช์ทรงกลมด้านใน -->
                         <LinearLayout
                             android:id="@+id/btnConnect"
                             android:layout_width="120dp"
