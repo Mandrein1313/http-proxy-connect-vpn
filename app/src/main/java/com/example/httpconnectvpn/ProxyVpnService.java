@@ -1,173 +1,120 @@
 package com.example.httpconnectvpn;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.VpnService;
-import android.os.Build;
 import android.os.ParcelFileDescriptor;
-import androidx.core.app.NotificationCompat;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 
-public class ProxyVpnService extends VpnService implements Runnable {
+public class ProxyVpnService extends VpnService {
+
     public static final String ACTION_STATE = "com.example.httpconnectvpn.VPN_STATE";
-    public static final String ACTION_LOG = "com.example.httpconnectvpn.ADD_LOG";
-    private static final String CHANNEL_ID = "vpn_channel";
-    private Thread vpnThread;
     private ParcelFileDescriptor vpnInterface;
+    private Thread vpnThread;
+    private Session jschSession;
     private boolean isRunning = false;
-    private String host;
-    private int port;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        createNotificationChannel();
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("HTTP VPN Client")
-                .setContentText("กำลังทำงานและเชื่อมต่อผ่าน Proxy...")
-                .setSmallIcon(R.drawable.ic_launcher)
-                .setOngoing(true)
-                .build();
-        startForeground(1, notification);
-
-        if (intent != null) {
-            host = intent.getStringExtra("host");
-            port = intent.getIntExtra("port", 8080);
+        if (intent != null && "STOP".equals(intent.getAction())) {
+            stopVpn();
+            return START_NOT_STICKY;
         }
 
-        if (vpnThread == null || !vpnThread.isAlive()) {
-            isRunning = true;
-            vpnThread = new Thread(this, "VPNThread");
-            vpnThread.start();
-        }
+        startVpn();
         return START_STICKY;
     }
 
-    @Override
-    public void run() {
-        sendLog("เริ่มการทำงานของบริการ VPN Service");
-        try {
-            SharedPreferences prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
-            String dns1 = prefs.getString("dns1", "8.8.8.8");
-            String dns2 = prefs.getString("dns2", "8.8.4.4");
-            String payload = prefs.getString("payload", "");
+    private void sendLog(String msg) {
+        Intent intent = new Intent(MainActivity.ACTION_LOG);
+        intent.putExtra("message", msg);
+        sendBroadcast(intent);
+    }
 
-            sendLog("กำลังตั้งค่า TUN Interface...");
-            sendLog("DNS Primary: " + dns1 + " | Secondary: " + dns2);
+    private void startVpn() {
+        if (isRunning) return;
+        isRunning = true;
 
-            Builder builder = new Builder();
-            builder.addAddress("10.0.0.2", 32);
-            builder.addRoute("0.0.0.0", 0);
-            builder.addDnsServer(dns1);
-            builder.addDnsServer(dns2);
-            builder.setSession("HttpVpnSession");
+        vpnThread = new Thread(() -> {
+            try {
+                SharedPreferences prefs = getSharedPreferences("VpnPrefs", MODE_PRIVATE);
+                String sshHost = prefs.getString("ssh_host", "");
+                int sshPort = prefs.getInt("ssh_port", 22);
+                String sshUser = prefs.getString("ssh_user", "");
+                String sshPass = prefs.getString("ssh_pass", "");
+                String dns1 = prefs.getString("dns1", "8.8.8.8");
+                String dns2 = prefs.getString("dns2", "8.8.4.4");
 
-            vpnInterface = builder.establish();
-            if (vpnInterface != null) {
-                sendLog("สร้าง TUN Interface สำเร็จ (10.0.0.2)");
-                broadcastState(true);
-            } else {
-                sendLog("เกิดข้อผิดพลาด: ไม่สามารถสร้าง TUN Interface ได้");
-                return;
-            }
+                // 1. ตั้งค่า VPN Interface
+                Builder builder = new Builder();
+                builder.setSession("HTTP Proxy VPN")
+                        .addAddress("10.0.0.2", 24)
+                        .addRoute("0.0.0.0", 0)
+                        .addDnsServer(dns1)
+                        .addDnsServer(dns2);
 
-            FileInputStream in = new FileInputStream(vpnInterface.getFileDescriptor());
-            FileOutputStream out = new FileOutputStream(vpnInterface.getFileDescriptor());
+                vpnInterface = builder.establish();
+                sendLog("[VPN] สร้าง VPN Interface สำเร็จ");
 
-            byte[] buffer = new byte[32768];
-            sendLog("กำลังเชื่อมต่อเซิร์ฟเวอร์ Proxy " + host + ":" + port + "...");
+                // 2. ถ้ามีข้อมูล SSH ให้ทำการเชื่อมต่อ SSH Tunnel
+                if (!sshHost.isEmpty() && !sshUser.isEmpty()) {
+                    sendLog("[SSH] กำลังเชื่อมต่อ SSH ไปยัง " + sshHost + ":" + sshPort + "...");
 
-            while (isRunning) {
-                int length = in.read(buffer);
-                if (length > 0) {
-                    try (Socket socket = new Socket()) {
-                        socket.connect(new InetSocketAddress(host, port), 5000);
-                        OutputStream socketOut = socket.getOutputStream();
-                        InputStream socketIn = socket.getInputStream();
+                    JSch jsch = new JSch();
+                    jschSession = jsch.getSession(sshUser, sshHost, sshPort);
+                    jschSession.setPassword(sshPass);
+                    jschSession.setConfig("StrictHostKeyChecking", "no");
+                    jschSession.setTimeout(15000);
+                    jschSession.connect();
 
-                        if (!payload.isEmpty()) {
-                            sendLog("ส่ง Custom Payload สำหรับ Handshake...");
-                            String formattedPayload = payload.replace("[host_port]", host + ":" + port)
-                                                             .replace("[protocol]", "HTTP/1.1");
-                            socketOut.write(formattedPayload.getBytes());
-                            socketOut.flush();
-                        }
-
-                        socketOut.write(buffer, 0, length);
-                        socketOut.flush();
-
-                        int readBytes = socketIn.read(buffer);
-                        if (readBytes > 0) {
-                            out.write(buffer, 0, readBytes);
-                        }
-                    } catch (Exception e) {
-                        sendLog("ข้อผิดพลาดเครือข่าย: " + e.getMessage());
-                    }
+                    // เปิด Dynamic Port Forwarding (SOCKS Proxy ภายในเครื่องที่ Port 1080)
+                    jschSession.setPortForwardingL(1080, "127.0.0.1", 1080);
+                    sendLog("[SSH] เชื่อมต่อ SSH สำเร็จ! (Tunnel Port: 1080)");
+                } else {
+                    sendLog("[SSH] ข้ามการเชื่อมต่อ SSH (ไม่ได้ระบุ Host/User)");
                 }
+
+                // บรอดแคสต์บอก UI ว่าเชื่อมต่อแล้ว
+                Intent intent = new Intent(ACTION_STATE);
+                intent.putExtra("connected", true);
+                sendBroadcast(intent);
+
+            } catch (Exception e) {
+                sendLog("[Error] เกิดข้อผิดพลาด: " + e.getMessage());
+                stopVpn();
             }
-        } catch (Exception e) {
-            sendLog("เกิดข้อผิดพลาดร้ายแรง: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            disconnect();
-        }
+        });
+
+        vpnThread.start();
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "VPN Service Channel",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
-
-    private void disconnect() {
-        if (isRunning) {
-            sendLog("กำลังหยุดบริการ VPN Service...");
-        }
+    private void stopVpn() {
         isRunning = false;
         try {
+            if (jschSession != null && jschSession.isConnected()) {
+                jschSession.disconnect();
+                sendLog("[SSH] ตัดการเชื่อมต่อ SSH เรียบร้อย");
+            }
             if (vpnInterface != null) {
                 vpnInterface.close();
                 vpnInterface = null;
             }
         } catch (Exception ignored) {}
-        broadcastState(false);
-        stopForeground(true);
-        sendLog("ตัดการเชื่อมต่อและปิด TUN Interface เรียบร้อยแล้ว");
-    }
 
-    private void broadcastState(boolean connected) {
+        sendLog("[VPN] หยุดการทำงานเรียบร้อย");
+
         Intent intent = new Intent(ACTION_STATE);
-        intent.putExtra("connected", connected);
+        intent.putExtra("connected", false);
         sendBroadcast(intent);
-    }
 
-    // ฟังก์ชันยิง Log กลับไปยัง MainActivity
-    private void sendLog(String msg) {
-        Intent intent = new Intent(ACTION_LOG);
-        intent.putExtra("message", msg);
-        sendBroadcast(intent);
+        stopSelf();
     }
 
     @Override
     public void onDestroy() {
-        disconnect();
+        stopVpn();
         super.onDestroy();
     }
 }

@@ -18,7 +18,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="ตั้งค่าระบบ (VPN Settings)"
+            android:text="ตั้งค่าระบบ (VPN &amp; SSH Settings)"
             android:textColor="@color/text"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -34,10 +34,92 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Custom Payload -->
+            <!-- ================= SSH Settings ================= -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="SSH Server Settings"
+                android:textColor="#00E5FF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/sshHostInput"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/card"
+                    android:hint="SSH Host / IP"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:singleLine="true"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/muted"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/sshPortInput"
+                    android:layout_width="80dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/card"
+                    android:hint="22"
+                    android:inputType="number"
+                    android:gravity="center"
+                    android:singleLine="true"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/muted"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/sshUserInput"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/card"
+                    android:hint="Username"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:singleLine="true"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/muted"
+                    android:textSize="13sp" />
+
+                <EditText
+                    android:id="@+id/sshPassInput"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/card"
+                    android:hint="Password"
+                    android:inputType="textPassword"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:singleLine="true"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/muted"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- ================= Payload & SNI ================= -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
                 android:text="Custom Payload"
                 android:textColor="@color/text"
                 android:textSize="14sp"
@@ -46,7 +128,7 @@
             <EditText
                 android:id="@+id/payloadInput"
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
+                android:layout_height="90dp"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/card"
                 android:gravity="top|start"
@@ -56,11 +138,10 @@
                 android:textColorHint="@color/muted"
                 android:textSize="13sp" />
 
-            <!-- SNI / Bug Host -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:text="SNI / Bug Host"
                 android:textColor="@color/text"
                 android:textSize="14sp"
@@ -80,11 +161,10 @@
                 android:textColorHint="@color/muted"
                 android:textSize="13sp" />
 
-            <!-- Custom DNS -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:text="Custom DNS"
                 android:textColor="@color/text"
                 android:textSize="14sp"
@@ -124,12 +204,11 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
-            <!-- ปุ่มบันทึกการตั้งค่า -->
             <Button
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:layout_marginTop="30dp"
+                android:layout_marginTop="26dp"
                 android:backgroundTint="#1E293B"
                 android:text="บันทึกการตั้งค่า"
                 android:textColor="@color/text" />

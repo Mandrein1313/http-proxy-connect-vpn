@@ -20,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
@@ -52,19 +53,24 @@ public class MainActivity extends AppCompatActivity {
     private MaterialToolbar toolbar;
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
+
     private boolean connected = false;
+    private boolean isReceiverRegistered = false;
     private SharedPreferences prefs;
 
+    // Launcher สำหรับ Export Config (JSON File)
     private final ActivityResultLauncher<String> exportLauncher = registerForActivityResult(
             new ActivityResultContracts.CreateDocument("application/json"),
             this::exportConfigFile
     );
 
+    // Launcher สำหรับ Import Config
     private final ActivityResultLauncher<String[]> importLauncher = registerForActivityResult(
             new ActivityResultContracts.OpenDocument(),
             this::importConfigFile
     );
 
+    // Receiver รับสถานะ VPN และ Log
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
@@ -86,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
 
+        // Binding Views
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
@@ -102,10 +109,11 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
+        // แสดงค่า Proxy ล่าสุด
         if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
         if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
 
-        // สลับแท็บ Main / Log
+        // สลับแท็บ หน้าหลัก (Main) / ล็อก (Log)
         if (tabLayout != null) {
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
                 @Override
@@ -123,11 +131,12 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // Drawer Menu Button
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
-        // จัดการคลิกเมนูด้านข้าง (Navigation Drawer)
+        // จัดการคลิก Navigation Drawer
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
                 int id = item.getItemId();
@@ -145,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // จัดการคลิกเมนูด้านล่าง (Bottom Navigation)
+        // จัดการคลิก Bottom Navigation Bar
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
@@ -170,18 +179,45 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ProxyVpnService.ACTION_STATE);
-        filter.addAction(ACTION_LOG);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(receiver, filter);
-        }
-
         if (btnConnect != null) btnConnect.setOnClickListener(v -> toggleVpn());
         updateUi();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerLogReceiver();
+        updateUi();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterLogReceiver();
+    }
+
+    private void registerLogReceiver() {
+        if (!isReceiverRegistered) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(ProxyVpnService.ACTION_STATE);
+            filter.addAction(ACTION_LOG);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(receiver, filter);
+            }
+            isReceiverRegistered = true;
+        }
+    }
+
+    private void unregisterLogReceiver() {
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(receiver);
+            } catch (Exception ignored) {}
+            isReceiverRegistered = false;
+        }
     }
 
     public void appendLog(String message) {
@@ -194,12 +230,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ฟังก์ชันส่งออกไฟล์ คอนฟิก (รวมทั้ง HTTP Proxy และ SSH)
     private void exportConfigFile(Uri uri) {
         if (uri == null) return;
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
             JSONObject json = new JSONObject();
-            json.put("host", hostInput != null ? hostInput.getText().toString() : "");
-            json.put("port", portInput != null ? Integer.parseInt(portInput.getText().toString()) : 8080);
+            json.put("host", hostInput != null ? hostInput.getText().toString().trim() : "");
+            json.put("port", portInput != null ? Integer.parseInt(portInput.getText().toString().trim()) : 8080);
+            json.put("ssh_host", prefs.getString("ssh_host", ""));
+            json.put("ssh_port", prefs.getInt("ssh_port", 22));
+            json.put("ssh_user", prefs.getString("ssh_user", ""));
+            json.put("ssh_pass", prefs.getString("ssh_pass", ""));
             json.put("payload", prefs.getString("payload", ""));
             json.put("sni", prefs.getString("sni", ""));
             json.put("dns1", prefs.getString("dns1", "8.8.8.8"));
@@ -215,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ฟังก์ชันนำเข้าไฟล์ คอนฟิก
     private void importConfigFile(Uri uri) {
         if (uri == null) return;
         try (InputStream is = getContentResolver().openInputStream(uri)) {
@@ -224,10 +266,8 @@ public class MainActivity extends AppCompatActivity {
             String jsonStr = new String(bytes);
 
             JSONObject json = new JSONObject(jsonStr);
-            String host = json.getString("host");
-            int port = json.getInt("port");
-            String payload = json.optString("payload", "");
-            String sni = json.optString("sni", "");
+            String host = json.optString("host", "");
+            int port = json.optInt("port", 8080);
 
             if (hostInput != null) hostInput.setText(host);
             if (portInput != null) portInput.setText(String.valueOf(port));
@@ -235,8 +275,14 @@ public class MainActivity extends AppCompatActivity {
             prefs.edit()
                     .putString("proxy_host", host)
                     .putInt("proxy_port", port)
-                    .putString("payload", payload)
-                    .putString("sni", sni)
+                    .putString("ssh_host", json.optString("ssh_host", ""))
+                    .putInt("ssh_port", json.optInt("ssh_port", 22))
+                    .putString("ssh_user", json.optString("ssh_user", ""))
+                    .putString("ssh_pass", json.optString("ssh_pass", ""))
+                    .putString("payload", json.optString("payload", ""))
+                    .putString("sni", json.optString("sni", ""))
+                    .putString("dns1", json.optString("dns1", "8.8.8.8"))
+                    .putString("dns2", json.optString("dns2", "8.8.4.4"))
                     .apply();
 
             appendLog("นำเข้าไฟล์ คอนฟิก สำเร็จ!");
@@ -250,7 +296,9 @@ public class MainActivity extends AppCompatActivity {
     private void toggleVpn() {
         if (connected) {
             appendLog("กำลังหยุดการทำงาน...");
-            stopService(new Intent(this, ProxyVpnService.class));
+            Intent stopIntent = new Intent(this, ProxyVpnService.class);
+            stopIntent.setAction("STOP");
+            startService(stopIntent);
             connected = false;
             updateUi();
             return;
@@ -270,6 +318,23 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(prepare, VPN_REQUEST);
         } else {
             startVpn(host, port);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VPN_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                String host = hostInput != null ? hostInput.getText().toString().trim() : "";
+                int port = 8080;
+                try {
+                    if (portInput != null) port = Integer.parseInt(portInput.getText().toString().trim());
+                } catch (Exception ignored) {}
+                startVpn(host, port);
+            } else {
+                appendLog("ผู้ใช้ปฏิเสธการขออนุญาต VPN");
+            }
         }
     }
 
@@ -301,7 +366,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        try { unregisterReceiver(receiver); } catch (Exception ignored) {}
+        unregisterLogReceiver();
         super.onDestroy();
     }
 }
