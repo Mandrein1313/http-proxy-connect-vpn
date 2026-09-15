@@ -28,6 +28,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.tabs.TabLayout;
 
 import org.json.JSONObject;
 
@@ -44,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnConnect;
     private ImageView powerIcon;
     private TextView connectText, statusText, proxyText, logText;
-    private ScrollView logScrollView;
+    private ScrollView layoutMainContainer, layoutLogContainer;
+    private TabLayout tabLayout;
     private EditText hostInput, portInput;
     private BottomNavigationView bottomNavigationView;
     private MaterialToolbar toolbar;
@@ -87,19 +89,39 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
+        tabLayout = findViewById(R.id.tabLayout);
+        layoutMainContainer = findViewById(R.id.layoutMainContainer);
+        layoutLogContainer = findViewById(R.id.layoutLogContainer);
         btnConnect = findViewById(R.id.btnConnect);
         powerIcon = findViewById(R.id.powerIcon);
         connectText = findViewById(R.id.connectText);
         statusText = findViewById(R.id.statusText);
         proxyText = findViewById(R.id.proxyText);
         logText = findViewById(R.id.logText);
-        logScrollView = findViewById(R.id.logScrollView);
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
         if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
         if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+
+        // สลับแท็บ Main / Log
+        if (tabLayout != null) {
+            tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+                @Override
+                public void onTabSelected(TabLayout.Tab tab) {
+                    if (tab.getPosition() == 0) {
+                        layoutMainContainer.setVisibility(View.VISIBLE);
+                        layoutLogContainer.setVisibility(View.GONE);
+                    } else {
+                        layoutMainContainer.setVisibility(View.GONE);
+                        layoutLogContainer.setVisibility(View.VISIBLE);
+                    }
+                }
+                @Override public void onTabUnselected(TabLayout.Tab tab) {}
+                @Override public void onTabReselected(TabLayout.Tab tab) {}
+            });
+        }
 
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
@@ -109,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_home) {
+                    if (tabLayout != null) tabLayout.getTabAt(0).select();
                     return true;
                 } else if (id == R.id.nav_export) {
                     exportLauncher.launch("vpn_config.config");
@@ -117,10 +140,7 @@ public class MainActivity extends AppCompatActivity {
                     importLauncher.launch(new String[]{"*/*"});
                     return true;
                 } else if (id == R.id.nav_logs) {
-                    if (logScrollView != null) {
-                        int visibility = logScrollView.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE;
-                        logScrollView.setVisibility(visibility);
-                    }
+                    if (tabLayout != null) tabLayout.getTabAt(1).select();
                     return true;
                 }
                 return false;
@@ -145,8 +165,8 @@ public class MainActivity extends AppCompatActivity {
         if (logText != null && message != null) {
             String time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
             logText.append("\n[" + time + "] " + message);
-            if (logScrollView != null) {
-                logScrollView.post(() -> logScrollView.fullScroll(ScrollView.FOCUS_DOWN));
+            if (layoutLogContainer != null) {
+                layoutLogContainer.post(() -> layoutLogContainer.fullScroll(ScrollView.FOCUS_DOWN));
             }
         }
     }

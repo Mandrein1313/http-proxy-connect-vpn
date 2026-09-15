@@ -19,6 +19,7 @@
             android:layout_above="@id/bottomDivider"
             android:orientation="vertical">
 
+            <!-- Toolbar ด้านบน -->
             <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
@@ -37,189 +38,210 @@
                     android:textStyle="bold" />
             </com.google.android.material.appbar.MaterialToolbar>
 
-            <ScrollView
+            <!-- Tab Bar สไตล์ HTTP Custom (Main / Log) -->
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayout"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true">
+                android:layout_height="wrap_content"
+                android:background="@color/toolbar_bg"
+                app:tabIndicatorColor="#00E5FF"
+                app:tabSelectedTextColor="#00E5FF"
+                app:tabTextColor="@color/muted">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingBottom="16dp">
+                    android:text="Main" />
 
-                    <!-- วงกลมหลัก และปุ่ม Power -->
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="220dp"
-                        android:layout_marginTop="16dp">
+                <com.google.android.material.tabs.TabItem
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Log" />
+            </com.google.android.material.tabs.TabLayout>
 
-                        <View
-                            android:layout_width="190dp"
-                            android:layout_height="190dp"
-                            android:layout_gravity="center"
-                            android:background="@drawable/ring_outer" />
+            <!-- Content Area -->
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
 
-                        <View
-                            android:layout_width="150dp"
-                            android:layout_height="150dp"
-                            android:layout_gravity="center"
-                            android:background="@drawable/ring_inner" />
-
-                        <!-- ปุ่มกดสวิตช์ทรงกลมด้านใน -->
-                        <LinearLayout
-                            android:id="@+id/btnConnect"
-                            android:layout_width="120dp"
-                            android:layout_height="120dp"
-                            android:layout_gravity="center"
-                            android:background="@drawable/power_circle"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <ImageView
-                                android:id="@+id/powerIcon"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
-                                android:src="@drawable/ic_power"
-                                app:tint="@color/text" />
-
-                            <TextView
-                                android:id="@+id/connectText"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="เชื่อมต่อ"
-                                android:textColor="@color/text"
-                                android:textSize="14sp" />
-                        </LinearLayout>
-                    </FrameLayout>
-
-                    <TextView
-                        android:id="@+id/statusText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:text="ยังไม่เชื่อม"
-                        android:textColor="@color/muted"
-                        android:textSize="18sp" />
-
-                    <TextView
-                        android:id="@+id/proxyText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:text="proxy.internal.example:8080 · HTTP"
-                        android:textColor="@color/muted"
-                        android:textSize="14sp" />
+                <!-- TAB 1: Main (ปุ่มเชื่อมต่อ + ค่าคอนฟิก) -->
+                <ScrollView
+                    android:id="@+id/layoutMainContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:visibility="visible">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="horizontal">
+                        android:orientation="vertical"
+                        android:paddingStart="20dp"
+                        android:paddingEnd="20dp"
+                        android:paddingBottom="16dp">
 
-                        <EditText
-                            android:id="@+id/hostInput"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="Proxy host"
-                            android:singleLine="true"
-                            android:text="proxy.internal.example"
-                            android:textColor="@color/text"
-                            android:textColorHint="@color/muted" />
+                        <!-- วงกลมหลัก และปุ่ม Power -->
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="220dp"
+                            android:layout_marginTop="16dp">
 
-                        <EditText
-                            android:id="@+id/portInput"
-                            android:layout_width="75dp"
-                            android:layout_height="wrap_content"
-                            android:hint="Port"
-                            android:inputType="number"
-                            android:singleLine="true"
-                            android:text="8080"
-                            android:textColor="@color/text"
-                            android:textColorHint="@color/muted" />
-                    </LinearLayout>
+                            <View
+                                android:layout_width="190dp"
+                                android:layout_height="190dp"
+                                android:layout_gravity="center"
+                                android:background="@drawable/ring_outer" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal"
-                        android:weightSum="3">
+                            <View
+                                android:layout_width="150dp"
+                                android:layout_height="150dp"
+                                android:layout_gravity="center"
+                                android:background="@drawable/ring_inner" />
 
-                        <TextView
-                            android:id="@+id/uploadText"
-                            android:layout_width="0dp"
-                            android:layout_height="60dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/card"
-                            android:gravity="center"
-                            android:text="อัปโหลด\n0 B"
-                            android:textColor="@color/text"
-                            android:textSize="13sp" />
+                            <LinearLayout
+                                android:id="@+id/btnConnect"
+                                android:layout_width="120dp"
+                                android:layout_height="120dp"
+                                android:layout_gravity="center"
+                                android:background="@drawable/power_circle"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:gravity="center"
+                                android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/downloadText"
-                            android:layout_width="0dp"
-                            android:layout_height="60dp"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/card"
-                            android:gravity="center"
-                            android:text="ดาวน์โหลด\n0 B"
-                            android:textColor="@color/text"
-                            android:textSize="13sp" />
+                                <ImageView
+                                    android:id="@+id/powerIcon"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:src="@drawable/ic_power"
+                                    app:tint="@color/text" />
+
+                                <TextView
+                                    android:id="@+id/connectText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="เชื่อมต่อ"
+                                    android:textColor="@color/text"
+                                    android:textSize="14sp" />
+                            </LinearLayout>
+                        </FrameLayout>
 
                         <TextView
-                            android:id="@+id/sessionText"
-                            android:layout_width="0dp"
-                            android:layout_height="60dp"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/card"
-                            android:gravity="center"
-                            android:text="เซสชัน\n00:00:00"
-                            android:textColor="@color/text"
-                            android:textSize="13sp" />
-                    </LinearLayout>
-
-                    <!-- ส่วน Log Terminal เพิ่มใหม่ -->
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:text="บันทึกสถานะระบบ (Logs)"
-                        android:textColor="@color/text"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <ScrollView
-                        android:id="@+id/logScrollView"
-                        android:layout_width="match_parent"
-                        android:layout_height="140dp"
-                        android:layout_marginTop="6dp"
-                        android:background="#0A0F1D"
-                        android:padding="8dp">
-
-                        <TextView
-                            android:id="@+id/logText"
+                            android:id="@+id/statusText"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:fontFamily="monospace"
-                            android:text="[System] พร้อมใช้งาน..."
-                            android:textColor="#00E5FF"
-                            android:textSize="12sp" />
-                    </ScrollView>
+                            android:layout_marginTop="6dp"
+                            android:gravity="center"
+                            android:text="ยังไม่เชื่อม"
+                            android:textColor="@color/muted"
+                            android:textSize="18sp" />
 
-                </LinearLayout>
-            </ScrollView>
+                        <TextView
+                            android:id="@+id/proxyText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center"
+                            android:text="proxy.internal.example:8080 · HTTP"
+                            android:textColor="@color/muted"
+                            android:textSize="14sp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <EditText
+                                android:id="@+id/hostInput"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:hint="Proxy host"
+                                android:singleLine="true"
+                                android:text="proxy.internal.example"
+                                android:textColor="@color/text"
+                                android:textColorHint="@color/muted" />
+
+                            <EditText
+                                android:id="@+id/portInput"
+                                android:layout_width="75dp"
+                                android:layout_height="wrap_content"
+                                android:hint="Port"
+                                android:inputType="number"
+                                android:singleLine="true"
+                                android:text="8080"
+                                android:textColor="@color/text"
+                                android:textColorHint="@color/muted" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal"
+                            android:weightSum="3">
+
+                            <TextView
+                                android:id="@+id/uploadText"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/card"
+                                android:gravity="center"
+                                android:text="อัปโหลด\n0 B"
+                                android:textColor="@color/text"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/downloadText"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/card"
+                                android:gravity="center"
+                                android:text="ดาวน์โหลด\n0 B"
+                                android:textColor="@color/text"
+                                android:textSize="13sp" />
+
+                            <TextView
+                                android:id="@+id/sessionText"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/card"
+                                android:gravity="center"
+                                android:text="เซสชัน\n00:00:00"
+                                android:textColor="@color/text"
+                                android:textSize="13sp" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </ScrollView>
+
+                <!-- TAB 2: Log Terminal (แสดงผลเต็มความสูง) -->
+                <ScrollView
+                    android:id="@+id/layoutLogContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#0A0F1D"
+                    android:padding="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/logText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="[System] พร้อมใช้งาน..."
+                        android:textColor="#00E5FF"
+                        android:textSize="12sp" />
+                </ScrollView>
+
+            </FrameLayout>
         </LinearLayout>
 
         <!-- เส้นแบ่งสีบางๆ (Divider Line) -->
