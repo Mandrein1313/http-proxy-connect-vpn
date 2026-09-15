@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
 
-    // Profile Card List Components
+    // Profile Card List
     private RecyclerView profileRecyclerView;
     private ProfileAdapter profileAdapter;
     private final List<ProfileAdapter.ProfileItem> profileList = new ArrayList<>();
@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
 
-        // Binding Views
+        // Binding Views Safely
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         toolbar = findViewById(R.id.toolbar);
@@ -115,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
         logText = findViewById(R.id.logText);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // Setup RecyclerView สำหรับ Profile Card List
+        // Setup RecyclerView
         profileRecyclerView = findViewById(R.id.profileRecyclerView);
         if (profileRecyclerView != null) {
             profileRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -221,6 +221,11 @@ public class MainActivity extends AppCompatActivity {
         if (profileAdapter != null) {
             profileAdapter.notifyDataSetChanged();
         }
+
+        // เลือกโปรไฟล์แรกอัตโนมัติหากมีรายการอยู่แล้ว
+        if (!profileList.isEmpty() && profileAdapter != null) {
+            saveSelectedProfileToPrefs(profileList.get(0));
+        }
     }
 
     private void saveProfilesListToStorage() {
@@ -240,7 +245,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveSelectedProfileToPrefs(ProfileAdapter.ProfileItem profile) {
-        if (profile == null) return;
+        if (profile == null || profile.jsonConfig == null) return;
         try {
             JSONObject json = new JSONObject(profile.jsonConfig);
             String mode = json.optString("mode", "ssh");
@@ -395,7 +400,10 @@ public class MainActivity extends AppCompatActivity {
 
             if (profileAdapter != null) {
                 profileAdapter.addProfile(newItem);
+            } else {
+                profileList.add(newItem);
             }
+            
             saveProfilesListToStorage();
             saveSelectedProfileToPrefs(newItem);
 
@@ -403,7 +411,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
         } catch (Exception e) {
-            appendLog("❌ รูปแบบไฟล์ Config ไม่ถูกต้อง");
+            appendLog("❌ รูปแบบไฟล์ Config ไม่ถูกต้อง: " + e.getMessage());
         }
     }
 
@@ -435,8 +443,8 @@ public class MainActivity extends AppCompatActivity {
         String password = prefs.getString("ssh_pass", "").trim();
 
         if (host.isEmpty()) {
-            Toast.makeText(this, "กรุณากรอกหรือเลือก SSH Profile", Toast.LENGTH_LONG).show();
-            appendLog("❌ ไม่พบ SSH Host");
+            Toast.makeText(this, "กรุณานำเข้าหรือเลือกโปรไฟล์คอนฟิก", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบข้อมูล Server ในโปรไฟล์");
             return;
         }
 
@@ -464,8 +472,8 @@ public class MainActivity extends AppCompatActivity {
         int port = prefs.getInt("v2ray_port", 443);
 
         if (address.isEmpty()) {
-            Toast.makeText(this, "ไม่พบคอนฟิก V2Ray Address", Toast.LENGTH_LONG).show();
-            appendLog("❌ ไม่พบ V2Ray Address");
+            Toast.makeText(this, "กรุณานำเข้าหรือเลือกโปรไฟล์คอนฟิก", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบข้อมูล V2Ray Server");
             return;
         }
 
