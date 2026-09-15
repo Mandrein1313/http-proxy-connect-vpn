@@ -193,8 +193,8 @@ public class MainActivity extends AppCompatActivity {
             if (portInput != null) portInput.setText(String.valueOf(sshPort));
         } else {
             // ถ้ายังไม่มีค่า SSH ให้ใช้ค่า default
-            if (hostInput != null) hostInput.setText("jp6.vpnjantit.com");
-            if (portInput != null) portInput.setText("22");
+            if (hostInput != null) hostInput.setText("ยังไม่มี");
+            if (portInput != null) portInput.setText("ยังไม่มี");
         }
     }
 
