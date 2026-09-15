@@ -151,7 +151,7 @@
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="16dp"
                             android:orientation="horizontal">
 
                             <TextView
@@ -175,39 +175,11 @@
                                 android:textSize="14sp" />
                         </LinearLayout>
 
+                        <!-- การ์ดแสดงสถานะ อัปโหลด / ดาวน์โหลด / เซสชัน -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:orientation="horizontal">
-
-                            <EditText
-                                android:id="@+id/hostInput"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:hint="Proxy host"
-                                android:singleLine="true"
-                                android:text="proxy.internal.example"
-                                android:textColor="@color/text"
-                                android:textColorHint="@color/muted" />
-
-                            <EditText
-                                android:id="@+id/portInput"
-                                android:layout_width="75dp"
-                                android:layout_height="wrap_content"
-                                android:hint="Port"
-                                android:inputType="number"
-                                android:singleLine="true"
-                                android:text="8080"
-                                android:textColor="@color/text"
-                                android:textColorHint="@color/muted" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
+                            android:layout_marginTop="16dp"
                             android:orientation="horizontal"
                             android:weightSum="3">
 
