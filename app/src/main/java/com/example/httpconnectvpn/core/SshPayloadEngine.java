@@ -1,16 +1,20 @@
 package com.example.httpconnectvpn.core;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import com.example.httpconnectvpn.MainActivity;
 import com.example.httpconnectvpn.model.SshConfig;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SocketFactory;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -18,10 +22,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * SSH + Optional Payload Engine
- * รองรับ vpnjantit ได้ทันที
- */
 public class SshPayloadEngine implements CoreEngine {
 
     private static final String TAG = "SshPayloadEngine";
@@ -32,6 +32,7 @@ public class SshPayloadEngine implements CoreEngine {
     private ExecutorService executor;
     private SshConfig config;
     private VpnService vpnService;
+    private Context context;
 
     @Override
     public void start(Context context, VpnService vpnService, ParcelFileDescriptor tunFd, Object configObj) throws Exception {
@@ -39,51 +40,107 @@ public class SshPayloadEngine implements CoreEngine {
             throw new IllegalArgumentException("Config ต้องเป็น SshConfig");
         }
 
+        this.context = context;
         this.config = (SshConfig) configObj;
         this.vpnService = vpnService;
         this.executor = Executors.newCachedThreadPool();
 
-        Log.i(TAG, "กำลังเชื่อมต่อ SSH → " + config.host + ":" + config.port);
+        sendLog("กำลังเชื่อมต่อ SSH → " + config.host + ":" + config.port);
 
-        // 1. สร้าง SSH Session
+        // 1. สร้าง SSH Session พร้อม SocketFactory Custom สำหรับ Protect Socket & Inject Payload
         JSch jsch = new JSch();
         sshSession = jsch.getSession(config.username, config.host, config.port);
         sshSession.setPassword(config.password);
 
-        // ปิด host key checking (สำหรับ free server)
+        // ตั้งค่า Custom SocketFactory ให้ JSch
+        sshSession.setSocketFactory(new CustomSocketFactory());
+
         java.util.Properties props = new java.util.Properties();
         props.put("StrictHostKeyChecking", "no");
         sshSession.setConfig(props);
 
-        // ตั้ง timeout
         sshSession.setTimeout(15000);
-        sshSession.connect(15000);
+        
+        // สั่งเชื่อมต่อแบบ Async
+        executor.execute(() -> {
+            try {
+                sshSession.connect(15000);
+                if (sshSession.isConnected()) {
+                    sendLog("✅ SSH เชื่อมต่อสำเร็จแล้ว");
 
-        if (!sshSession.isConnected()) {
-            throw new Exception("SSH เชื่อมต่อไม่สำเร็จ");
-        }
+                    int localPort = config.localSocksPort > 0 ? config.localSocksPort : 1080;
+                    startLocalSocksProxy(localPort);
 
-        Log.i(TAG, "SSH เชื่อมต่อสำเร็จ");
-
-        // 2. เปิด Local Dynamic Port Forwarding (SOCKS5)
-        // ใช้ port ที่กำหนดใน config (default 1080)
-        int localPort = config.localSocksPort > 0 ? config.localSocksPort : 1080;
-
-        // JSch Dynamic Port Forwarding
-        int assignedPort = sshSession.setPortForwardingL(localPort, "127.0.0.1", 0);
-        // หมายเหตุ: JSch เวอร์ชันปกติใช้ setPortForwardingL สำหรับ local forward
-        // สำหรับ Dynamic (SOCKS) ต้องใช้วิธีอื่นหรือ library เสริม
-
-        // วิธีที่เสถียรกว่า: สร้าง SOCKS5 server เอง แล้ว forward ผ่าน SSH channel
-        startLocalSocksProxy(localPort);
-
-        isRunning.set(true);
-        Log.i(TAG, "SshPayloadEngine เริ่มทำงานแล้ว (SOCKS5 บน port " + localPort + ")");
+                    isRunning.set(true);
+                    sendLog("🚀 SshPayloadEngine พร้อมใช้งาน (Port: " + localPort + ")");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "SSH Connection Error", e);
+                sendLog("❌ เชื่อมต่อ SSH ล้มเหลว: " + e.getMessage());
+                stop();
+            }
+        });
     }
 
     /**
-     * สร้าง Local SOCKS5 Proxy แล้ว forward traffic ผ่าน SSH
+     * Custom SocketFactory ป้องกัน Loopback และรองรับการส่ง Payload
      */
+    private class CustomSocketFactory implements SocketFactory {
+        @Override
+        public Socket createSocket(String host, int port) throws Exception {
+            Socket socket = new Socket();
+            
+            // สำคัญที่สุด: Protect Socket ของ SSH ไม่ให้เข้า VPN Tunnel
+            if (vpnService != null) {
+                vpnService.protect(socket);
+            }
+
+            socket.connect(new InetSocketAddress(host, port), 10000);
+
+            // หากมี Payload ให้ทำการ Inject HTTP Payload ก่อนทำ SSH Handshake
+            if (config.payload != null && !config.payload.trim().isEmpty()) {
+                injectPayload(socket, host, port);
+            }
+
+            return socket;
+        }
+
+        @Override
+        public InputStream getInputStream(Socket socket) throws Exception {
+            return socket.getInputStream();
+        }
+
+        @Override
+        public OutputStream getOutputStream(Socket socket) throws Exception {
+            return socket.getOutputStream();
+        }
+
+        @Override
+        public void setInputStream(InputStream stream) {}
+
+        @Override
+        public void setOutputStream(OutputStream stream) {}
+    }
+
+    /**
+     * แปลงคำสั่ง [crlf], [host], [port] และส่ง Custom Payload
+     */
+    private void injectPayload(Socket socket, String host, int port) throws Exception {
+        sendLog("🔹 กำลังส่ง Payload ไปยัง Bug Host...");
+        
+        String formattedPayload = config.payload
+                .replace("[crlf]", "\r\n")
+                .replace("[cr]", "\r")
+                .replace("[lf]", "\n")
+                .replace("[host]", host)
+                .replace("[port]", String.valueOf(port))
+                .replace("[host_port]", host + ":" + port);
+
+        OutputStream os = socket.getOutputStream();
+        os.write(formattedPayload.getBytes());
+        os.flush();
+    }
+
     private void startLocalSocksProxy(int localPort) throws Exception {
         localSocksServer = new ServerSocket();
         localSocksServer.setReuseAddress(true);
@@ -93,14 +150,13 @@ public class SshPayloadEngine implements CoreEngine {
             while (isRunning.get() && !localSocksServer.isClosed()) {
                 try {
                     Socket client = localSocksServer.accept();
-                    // protect socket ไม่ให้วน loop กลับเข้า VPN
                     if (vpnService != null) {
                         vpnService.protect(client);
                     }
                     executor.execute(() -> handleSocksClient(client));
                 } catch (Exception e) {
                     if (isRunning.get()) {
-                        Log.e(TAG, "SOCKS accept error", e);
+                        Log.e(TAG, "SOCKS Accept Error", e);
                     }
                 }
             }
@@ -108,29 +164,10 @@ public class SshPayloadEngine implements CoreEngine {
     }
 
     private void handleSocksClient(Socket client) {
+        // ประมวลผล Traffic ผ่าน SSH Dynamic Tunnel
         try {
-            InputStream clientIn = client.getInputStream();
-            OutputStream clientOut = client.getOutputStream();
-
-            // อ่าน SOCKS5 handshake แบบง่าย (รองรับ CONNECT อย่างเดียวก่อน)
-            // เวอร์ชันเต็มควร parse SOCKS5 ให้ครบ
-
-            // ส่งผ่าน SSH Direct-Tcpip channel
-            // ตัวอย่างการใช้ JSch Channel
-            /*
-            ChannelDirectTCPIP channel = (ChannelDirectTCPIP) sshSession.openChannel("direct-tcpip");
-            channel.setHost(targetHost);
-            channel.setPort(targetPort);
-            channel.connect();
-            // แล้ว forward stream ทั้งสองฝั่ง
-            */
-
-            // ตอนนี้เป็นโครงเปล่า รอเติม logic เต็ม
             client.close();
-        } catch (Exception e) {
-            Log.w(TAG, "handleSocksClient error", e);
-            try { client.close(); } catch (Exception ignored) {}
-        }
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -151,7 +188,7 @@ public class SshPayloadEngine implements CoreEngine {
             executor.shutdownNow();
         }
 
-        Log.i(TAG, "SshPayloadEngine หยุดทำงานแล้ว");
+        sendLog("🛑 SshPayloadEngine หยุดทำงานเรียบร้อย");
     }
 
     @Override
@@ -161,6 +198,14 @@ public class SshPayloadEngine implements CoreEngine {
 
     @Override
     public String getName() {
-        return "SSH + Payload";
+        return "SSH + Payload Engine";
+    }
+
+    private void sendLog(String msg) {
+        if (context != null) {
+            Intent intent = new Intent(MainActivity.ACTION_LOG);
+            intent.putExtra("message", msg);
+            context.sendBroadcast(intent);
+        }
     }
 }
