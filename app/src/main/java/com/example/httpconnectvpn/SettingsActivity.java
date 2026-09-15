@@ -8,12 +8,14 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.android.material.appbar.MaterialToolbar;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    private EditText payloadInput, sniInput, dnsPrimary, dnsSecondary;
-    private Button saveButton;
+    private EditText payloadInput, sniInput, dns1Input, dns2Input;
+    private Button btnSave;
+    private MaterialToolbar toolbar;
     private SharedPreferences prefs;
 
     @Override
@@ -23,38 +25,34 @@ public class SettingsActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
 
-        MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar = findViewById(R.id.toolbar);
+        payloadInput = findViewById(R.id.payloadInput);
+        sniInput = findViewById(R.id.sniInput);
+        dns1Input = findViewById(R.id.dns1Input);
+        dns2Input = findViewById(R.id.dns2Input);
+        btnSave = findViewById(R.id.btnSave);
+
         if (toolbar != null) {
             toolbar.setNavigationOnClickListener(v -> finish());
         }
 
-        payloadInput = findViewById(R.id.payloadInput);
-        sniInput = findViewById(R.id.sniInput);
-        dnsPrimary = findViewById(R.id.dnsPrimary);
-        dnsSecondary = findViewById(R.id.dnsSecondary);
-        saveButton = findViewById(R.id.saveButton);
+        // ดึงค่าเก่ามาแสดง
+        payloadInput.setText(prefs.getString("payload", "CONNECT [host_port] [protocol]"));
+        sniInput.setText(prefs.getString("sni", "m.facebook.com"));
+        dns1Input.setText(prefs.getString("dns1", "8.8.8.8"));
+        dns2Input.setText(prefs.getString("dns2", "8.8.4.4"));
 
-        loadSettings();
+        // กดบันทึก
+        btnSave.setOnClickListener(v -> {
+            prefs.edit()
+                    .putString("payload", payloadInput.getText().toString().trim())
+                    .putString("sni", sniInput.getText().toString().trim())
+                    .putString("dns1", dns1Input.getText().toString().trim())
+                    .putString("dns2", dns2Input.getText().toString().trim())
+                    .apply();
 
-        saveButton.setOnClickListener(v -> saveSettings());
-    }
-
-    private void loadSettings() {
-        payloadInput.setText(prefs.getString("payload", "CONNECT [host_port] [protocol]\r\n\r\n"));
-        sniInput.setText(prefs.getString("sni", ""));
-        dnsPrimary.setText(prefs.getString("dns1", "8.8.8.8"));
-        dnsSecondary.setText(prefs.getString("dns2", "8.8.4.4"));
-    }
-
-    private void saveSettings() {
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("payload", payloadInput.getText().toString());
-        editor.putString("sni", sniInput.getText().toString());
-        editor.putString("dns1", dnsPrimary.getText().toString());
-        editor.putString("dns2", dnsSecondary.getText().toString());
-        editor.apply();
-
-        Toast.makeText(this, "บันทึกการตั้งค่าเรียบร้อยแล้ว", Toast.LENGTH_SHORT).show();
-        finish();
+            Toast.makeText(this, "บันทึกการตั้งค่าเรียบร้อยแล้ว", Toast.LENGTH_SHORT).show();
+            finish();
+        });
     }
 }

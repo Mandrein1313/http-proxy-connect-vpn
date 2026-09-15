@@ -127,6 +127,20 @@ public class MainActivity extends AppCompatActivity {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
+        // เพิ่มการคลิกเมนูด้านข้าง (Navigation Drawer)
+        if (navigationView != null) {
+            navigationView.setNavigationItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_settings) {
+                    startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                }
+                if (drawerLayout != null) {
+                    drawerLayout.closeDrawer(GravityCompat.START);
+                }
+                return true;
+            });
+        }
+
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
