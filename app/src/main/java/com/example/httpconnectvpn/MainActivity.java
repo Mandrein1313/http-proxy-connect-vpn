@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -36,7 +37,9 @@ import com.google.android.material.tabs.TabLayout;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -46,6 +49,7 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "MainActivity";
     private static final int VPN_REQUEST = 1001;
     public static final String ACTION_LOG = "com.example.httpconnectvpn.ADD_LOG";
 
@@ -115,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
         logText = findViewById(R.id.logText);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // Setup RecyclerView
+        // Setup RecyclerView อย่างปลอดภัย
         profileRecyclerView = findViewById(R.id.profileRecyclerView);
         if (profileRecyclerView != null) {
             profileRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -146,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // Drawer
+        // Drawer Navigation
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
@@ -178,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     return true;
                 } else if (id == R.id.nav_export) {
-                    exportLauncher.launch("aetherlink_config.json");
+                    exportLauncher.launch("config.json");
                     return true;
                 } else if (id == R.id.nav_import) {
                     importLauncher.launch(new String[]{"*/*"});
@@ -209,21 +213,22 @@ public class MainActivity extends AppCompatActivity {
             for (int i = 0; i < array.length(); i++) {
                 JSONObject obj = array.getJSONObject(i);
                 profileList.add(new ProfileAdapter.ProfileItem(
-                        obj.optString("id"),
-                        obj.optString("name"),
-                        obj.optString("server"),
-                        obj.optString("mode"),
-                        obj.optString("jsonConfig")
+                        obj.optString("id", String.valueOf(System.currentTimeMillis())),
+                        obj.optString("name", "Profile"),
+                        obj.optString("server", "Unknown"),
+                        obj.optString("mode", "SSH"),
+                        obj.optString("jsonConfig", "{}")
                 ));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading saved profiles", e);
+        }
 
         if (profileAdapter != null) {
             profileAdapter.notifyDataSetChanged();
         }
 
-        // เลือกโปรไฟล์แรกอัตโนมัติหากมีรายการอยู่แล้ว
-        if (!profileList.isEmpty() && profileAdapter != null) {
+        if (!profileList.isEmpty()) {
             saveSelectedProfileToPrefs(profileList.get(0));
         }
     }
@@ -241,7 +246,9 @@ public class MainActivity extends AppCompatActivity {
                 array.put(obj);
             }
             prefs.edit().putString("saved_profiles_json", array.toString()).apply();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving profiles list", e);
+        }
     }
 
     private void saveSelectedProfileToPrefs(ProfileAdapter.ProfileItem profile) {
@@ -275,7 +282,9 @@ public class MainActivity extends AppCompatActivity {
                   .putString("dns2", json.optString("dns2", "1.1.1.1"))
                   .apply();
 
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing selected profile JSON", e);
+        }
     }
 
     @Override
@@ -326,7 +335,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ======================== Export / Import ========================
+    // ======================== Import / Export ปรับปรุงแก้ไขแก้ปัญหา Crash ========================
     private void exportConfigFile(Uri uri) {
         if (uri == null) return;
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
@@ -366,12 +375,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void importConfigFile(Uri uri) {
         if (uri == null) return;
-        try (InputStream is = getContentResolver().openInputStream(uri)) {
-            if (is == null) return;
+        try (InputStream is = getContentResolver().openInputStream(uri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
 
-            byte[] bytes = new byte[is.available()];
-            is.read(bytes);
-            String jsonStr = new String(bytes);
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            String jsonStr = sb.toString();
+
+            if (jsonStr.trim().isEmpty()) {
+                Toast.makeText(this, "ไฟล์ว่างเปล่า", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
             JSONObject json = new JSONObject(jsonStr);
             String mode = json.optString("mode", "ssh");
@@ -379,12 +396,12 @@ public class MainActivity extends AppCompatActivity {
 
             String server, modeLabel;
             if ("v2ray".equalsIgnoreCase(mode) || "vmess".equalsIgnoreCase(mode)) {
-                String address = json.optString("address", json.optString("host", ""));
+                String address = json.optString("address", json.optString("host", "Unknown"));
                 int port = json.optInt("port", 443);
                 server = address + ":" + port;
                 modeLabel = json.optString("protocol", "VMESS").toUpperCase();
             } else {
-                String host = json.optString("ssh_host", json.optString("host", ""));
+                String host = json.optString("ssh_host", json.optString("host", "Unknown"));
                 int port = json.optInt("ssh_port", json.optInt("port", 22));
                 server = host + ":" + port;
                 modeLabel = "SSH";
@@ -398,24 +415,26 @@ public class MainActivity extends AppCompatActivity {
                     jsonStr
             );
 
+            profileList.add(newItem);
             if (profileAdapter != null) {
-                profileAdapter.addProfile(newItem);
-            } else {
-                profileList.add(newItem);
+                profileAdapter.notifyDataSetChanged();
             }
-            
+
             saveProfilesListToStorage();
             saveSelectedProfileToPrefs(newItem);
 
-            appendLog("✅ นำเข้าโปรไฟล์การ์ดสำเร็จ: " + profileName);
+            appendLog("✅ นำเข้าโปรไฟล์สำเร็จ: " + profileName);
             Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
+
         } catch (Exception e) {
-            appendLog("❌ รูปแบบไฟล์ Config ไม่ถูกต้อง: " + e.getMessage());
+            Log.e(TAG, "Import error", e);
+            appendLog("❌ รูปแบบไฟล์ Config ไม่ถูกต้อง");
+            Toast.makeText(this, "ไม่สามารถอ่านไฟล์ Config ได้", Toast.LENGTH_LONG).show();
         }
     }
 
-    // ======================== เชื่อมต่อ / ตัดการเชื่อมต่อ ========================
+    // ======================== การเชื่อมต่อ ========================
     private void toggleVpn() {
         if (connected) {
             appendLog("กำลังหยุดการทำงาน...");
@@ -443,8 +462,8 @@ public class MainActivity extends AppCompatActivity {
         String password = prefs.getString("ssh_pass", "").trim();
 
         if (host.isEmpty()) {
-            Toast.makeText(this, "กรุณานำเข้าหรือเลือกโปรไฟล์คอนฟิก", Toast.LENGTH_LONG).show();
-            appendLog("❌ ไม่พบข้อมูล Server ในโปรไฟล์");
+            Toast.makeText(this, "กรุณานำเข้าหรือเลือก Profile คอนฟิกก่อน", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบข้อมูล SSH Host");
             return;
         }
 
@@ -472,8 +491,8 @@ public class MainActivity extends AppCompatActivity {
         int port = prefs.getInt("v2ray_port", 443);
 
         if (address.isEmpty()) {
-            Toast.makeText(this, "กรุณานำเข้าหรือเลือกโปรไฟล์คอนฟิก", Toast.LENGTH_LONG).show();
-            appendLog("❌ ไม่พบข้อมูล V2Ray Server");
+            Toast.makeText(this, "กรุณานำเข้าหรือเลือก Profile คอนฟิกก่อน", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบข้อมูล V2Ray Address");
             return;
         }
 
