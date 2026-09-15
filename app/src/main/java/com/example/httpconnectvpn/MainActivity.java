@@ -40,6 +40,7 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
+
     private static final int VPN_REQUEST = 1001;
     public static final String ACTION_LOG = "com.example.httpconnectvpn.ADD_LOG";
 
@@ -58,7 +59,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean isReceiverRegistered = false;
     private SharedPreferences prefs;
 
-    // Launcher สำหรับ Export Config (JSON File)
+    // โหมดการเชื่อมต่อปัจจุบัน ("http" หรือ "ssh")
+    private String currentMode = "http";
+
+    // Launcher สำหรับ Export Config
     private final ActivityResultLauncher<String> exportLauncher = registerForActivityResult(
             new ActivityResultContracts.CreateDocument("application/json"),
             this::exportConfigFile
@@ -75,10 +79,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context c, Intent i) {
             if (i == null || i.getAction() == null) return;
+
             if (ProxyVpnService.ACTION_STATE.equals(i.getAction())) {
                 connected = i.getBooleanExtra("connected", false);
                 updateUi();
-            } else if (ACTION_LOG.equals(i.getAction())) {
+            } else if (ACTION_LOG.equals(i.getAction()) || ProxyVpnService.ACTION_LOG.equals(i.getAction())) {
                 String message = i.getStringExtra("message");
                 appendLog(message);
             }
@@ -91,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
+        currentMode = prefs.getString("connection_mode", "http");
 
         // Binding Views
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -109,11 +115,10 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // แสดงค่า Proxy ล่าสุด
-        if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
-        if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+        // โหลดค่าล่าสุดตามโหมด
+        loadLastConfig();
 
-        // สลับแท็บ หน้าหลัก (Main) / ล็อก (Log)
+        // สลับแท็บ Main / Log
         if (tabLayout != null) {
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
                 @Override
@@ -131,12 +136,11 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // Drawer Menu Button
+        // Drawer
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
-        // จัดการคลิก Navigation Drawer
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
                 int id = item.getItemId();
@@ -154,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // จัดการคลิก Bottom Navigation Bar
+        // Bottom Navigation
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
@@ -164,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     return true;
                 } else if (id == R.id.nav_export) {
-                    exportLauncher.launch("vpn_config.config");
+                    exportLauncher.launch("aetherlink_config.json");
                     return true;
                 } else if (id == R.id.nav_import) {
                     importLauncher.launch(new String[]{"*/*"});
@@ -179,14 +183,29 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        if (btnConnect != null) btnConnect.setOnClickListener(v -> toggleVpn());
+        if (btnConnect != null) {
+            btnConnect.setOnClickListener(v -> toggleVpn());
+        }
+
         updateUi();
+    }
+
+    private void loadLastConfig() {
+        if ("ssh".equals(currentMode)) {
+            if (hostInput != null) hostInput.setText(prefs.getString("ssh_host", "jp6.vpnjantit.com"));
+            if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("ssh_port", 22)));
+        } else {
+            if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
+            if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         registerLogReceiver();
+        // โหลดโหมดล่าสุดจาก Settings (ถ้ามี)
+        currentMode = prefs.getString("connection_mode", currentMode);
         updateUi();
     }
 
@@ -201,6 +220,7 @@ public class MainActivity extends AppCompatActivity {
             IntentFilter filter = new IntentFilter();
             filter.addAction(ProxyVpnService.ACTION_STATE);
             filter.addAction(ACTION_LOG);
+            filter.addAction(ProxyVpnService.ACTION_LOG);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -230,13 +250,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ฟังก์ชันส่งออกไฟล์ คอนฟิก (รวมทั้ง HTTP Proxy และ SSH)
+    // ======================== Export / Import ========================
     private void exportConfigFile(Uri uri) {
         if (uri == null) return;
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
             JSONObject json = new JSONObject();
+
+            json.put("mode", currentMode);
             json.put("host", hostInput != null ? hostInput.getText().toString().trim() : "");
             json.put("port", portInput != null ? Integer.parseInt(portInput.getText().toString().trim()) : 8080);
+
+            // SSH fields
             json.put("ssh_host", prefs.getString("ssh_host", ""));
             json.put("ssh_port", prefs.getInt("ssh_port", 22));
             json.put("ssh_user", prefs.getString("ssh_user", ""));
@@ -244,28 +268,30 @@ public class MainActivity extends AppCompatActivity {
             json.put("payload", prefs.getString("payload", ""));
             json.put("sni", prefs.getString("sni", ""));
             json.put("dns1", prefs.getString("dns1", "8.8.8.8"));
-            json.put("dns2", prefs.getString("dns2", "8.8.4.4"));
+            json.put("dns2", prefs.getString("dns2", "1.1.1.1"));
 
             if (os != null) {
                 os.write(json.toString(4).getBytes());
-                appendLog("ส่งออกไฟล์ คอนฟิก สำเร็จ!");
-                Toast.makeText(this, "บันทึกไฟล์คอนฟิกสำเร็จ", Toast.LENGTH_SHORT).show();
+                appendLog("✅ ส่งออกไฟล์ Config สำเร็จ");
+                Toast.makeText(this, "บันทึก Config สำเร็จ", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            appendLog("เกิดข้อผิดพลาดในการส่งออกไฟล์");
+            appendLog("❌ ส่งออกไฟล์ล้มเหลว: " + e.getMessage());
         }
     }
 
-    // ฟังก์ชันนำเข้าไฟล์ คอนฟิก
     private void importConfigFile(Uri uri) {
         if (uri == null) return;
         try (InputStream is = getContentResolver().openInputStream(uri)) {
             if (is == null) return;
+
             byte[] bytes = new byte[is.available()];
             is.read(bytes);
             String jsonStr = new String(bytes);
 
             JSONObject json = new JSONObject(jsonStr);
+
+            currentMode = json.optString("mode", "http");
             String host = json.optString("host", "");
             int port = json.optInt("port", 8080);
 
@@ -273,26 +299,28 @@ public class MainActivity extends AppCompatActivity {
             if (portInput != null) portInput.setText(String.valueOf(port));
 
             prefs.edit()
+                    .putString("connection_mode", currentMode)
                     .putString("proxy_host", host)
                     .putInt("proxy_port", port)
-                    .putString("ssh_host", json.optString("ssh_host", ""))
+                    .putString("ssh_host", json.optString("ssh_host", host))
                     .putInt("ssh_port", json.optInt("ssh_port", 22))
                     .putString("ssh_user", json.optString("ssh_user", ""))
                     .putString("ssh_pass", json.optString("ssh_pass", ""))
                     .putString("payload", json.optString("payload", ""))
                     .putString("sni", json.optString("sni", ""))
                     .putString("dns1", json.optString("dns1", "8.8.8.8"))
-                    .putString("dns2", json.optString("dns2", "8.8.4.4"))
+                    .putString("dns2", json.optString("dns2", "1.1.1.1"))
                     .apply();
 
-            appendLog("นำเข้าไฟล์ คอนฟิก สำเร็จ!");
-            Toast.makeText(this, "นำเข้าค่าตั้งค่าสำเร็จ", Toast.LENGTH_SHORT).show();
+            appendLog("✅ นำเข้า Config สำเร็จ (โหมด: " + currentMode + ")");
+            Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
         } catch (Exception e) {
-            appendLog("รูปแบบไฟล์ คอนฟิก ไม่ถูกต้อง");
+            appendLog("❌ รูปแบบไฟล์ Config ไม่ถูกต้อง");
         }
     }
 
+    // ======================== เชื่อมต่อ / ตัดการเชื่อมต่อ ========================
     private void toggleVpn() {
         if (connected) {
             appendLog("กำลังหยุดการทำงาน...");
@@ -304,20 +332,40 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // บันทึกค่าปัจจุบัน
         String host = hostInput != null ? hostInput.getText().toString().trim() : "";
-        int port = 8080;
+        int port = 22;
         try {
-            if (portInput != null) port = Integer.parseInt(portInput.getText().toString().trim());
+            if (portInput != null) {
+                port = Integer.parseInt(portInput.getText().toString().trim());
+            }
         } catch (Exception ignored) {}
 
-        appendLog("กำลังเตรียมการเชื่อมต่อ VPN ไปยัง " + host + ":" + port);
-        prefs.edit().putString("proxy_host", host).putInt("proxy_port", port).apply();
+        if (host.isEmpty()) {
+            Toast.makeText(this, "กรุณากรอก Host", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // บันทึกลง prefs
+        if ("ssh".equals(currentMode)) {
+            prefs.edit()
+                    .putString("ssh_host", host)
+                    .putInt("ssh_port", port)
+                    .apply();
+        } else {
+            prefs.edit()
+                    .putString("proxy_host", host)
+                    .putInt("proxy_port", port)
+                    .apply();
+        }
+
+        appendLog("กำลังเตรียมการเชื่อมต่อ (" + currentMode.toUpperCase() + ") → " + host + ":" + port);
 
         Intent prepare = VpnService.prepare(this);
         if (prepare != null) {
             startActivityForResult(prepare, VPN_REQUEST);
         } else {
-            startVpn(host, port);
+            startVpnService(host, port);
         }
     }
 
@@ -327,40 +375,55 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == VPN_REQUEST) {
             if (resultCode == RESULT_OK) {
                 String host = hostInput != null ? hostInput.getText().toString().trim() : "";
-                int port = 8080;
+                int port = 22;
                 try {
                     if (portInput != null) port = Integer.parseInt(portInput.getText().toString().trim());
                 } catch (Exception ignored) {}
-                startVpn(host, port);
+                startVpnService(host, port);
             } else {
                 appendLog("ผู้ใช้ปฏิเสธการขออนุญาต VPN");
             }
         }
     }
 
-    private void startVpn(String host, int port) {
-        Intent i = new Intent(this, ProxyVpnService.class)
-                .putExtra("host", host)
-                .putExtra("port", port);
-        ContextCompat.startForegroundService(this, i);
+    private void startVpnService(String host, int port) {
+        Intent intent = new Intent(this, ProxyVpnService.class);
+
+        if ("ssh".equals(currentMode)) {
+            // โหมด SSH (vpnjantit)
+            intent.putExtra("mode", "ssh");
+            intent.putExtra("host", host);
+            intent.putExtra("port", port);
+            intent.putExtra("username", prefs.getString("ssh_user", ""));
+            intent.putExtra("password", prefs.getString("ssh_pass", ""));
+            intent.putExtra("payload", prefs.getString("payload", ""));
+        } else {
+            // โหมด HTTP เดิม
+            intent.putExtra("mode", "http");
+            intent.putExtra("host", host);
+            intent.putExtra("port", port);
+        }
+
+        ContextCompat.startForegroundService(this, intent);
         connected = true;
-        appendLog("ส่งคำสั่งเชื่อมต่อ Service เรียบร้อย");
+        appendLog("ส่งคำสั่งเชื่อมต่อ Service แล้ว");
         updateUi();
     }
 
     private void updateUi() {
         if (connected) {
-            if (connectText != null) connectText.setText("ตัดเชื่อมต่อ");
+            if (connectText != null) connectText.setText("ตัดการเชื่อมต่อ");
             if (statusText != null) statusText.setText("เชื่อมต่อสำเร็จ");
             if (powerIcon != null) powerIcon.setColorFilter(Color.parseColor("#4ADE80"));
         } else {
             if (connectText != null) connectText.setText("เชื่อมต่อ");
-            if (statusText != null) statusText.setText("ยังไม่เชื่อม");
+            if (statusText != null) statusText.setText("ยังไม่เชื่อมต่อ");
             if (powerIcon != null) powerIcon.clearColorFilter();
         }
 
         if (proxyText != null && hostInput != null && portInput != null) {
-            proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · HTTP");
+            String modeLabel = "ssh".equals(currentMode) ? "SSH" : "HTTP";
+            proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · " + modeLabel);
         }
     }
 
