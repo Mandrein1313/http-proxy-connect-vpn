@@ -20,6 +20,7 @@ import java.net.Socket;
 
 public class ProxyVpnService extends VpnService implements Runnable {
     public static final String ACTION_STATE = "com.example.httpconnectvpn.VPN_STATE";
+    public static final String ACTION_LOG = "com.example.httpconnectvpn.ADD_LOG";
     private static final String CHANNEL_ID = "vpn_channel";
     private Thread vpnThread;
     private ParcelFileDescriptor vpnInterface;
@@ -53,11 +54,15 @@ public class ProxyVpnService extends VpnService implements Runnable {
 
     @Override
     public void run() {
+        sendLog("เริ่มการทำงานของบริการ VPN Service");
         try {
             SharedPreferences prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
             String dns1 = prefs.getString("dns1", "8.8.8.8");
             String dns2 = prefs.getString("dns2", "8.8.4.4");
             String payload = prefs.getString("payload", "");
+
+            sendLog("กำลังตั้งค่า TUN Interface...");
+            sendLog("DNS Primary: " + dns1 + " | Secondary: " + dns2);
 
             Builder builder = new Builder();
             builder.addAddress("10.0.0.2", 32);
@@ -67,12 +72,20 @@ public class ProxyVpnService extends VpnService implements Runnable {
             builder.setSession("HttpVpnSession");
 
             vpnInterface = builder.establish();
-            broadcastState(true);
+            if (vpnInterface != null) {
+                sendLog("สร้าง TUN Interface สำเร็จ (10.0.0.2)");
+                broadcastState(true);
+            } else {
+                sendLog("เกิดข้อผิดพลาด: ไม่สามารถสร้าง TUN Interface ได้");
+                return;
+            }
 
             FileInputStream in = new FileInputStream(vpnInterface.getFileDescriptor());
             FileOutputStream out = new FileOutputStream(vpnInterface.getFileDescriptor());
 
             byte[] buffer = new byte[32768];
+            sendLog("กำลังเชื่อมต่อเซิร์ฟเวอร์ Proxy " + host + ":" + port + "...");
+
             while (isRunning) {
                 int length = in.read(buffer);
                 if (length > 0) {
@@ -82,6 +95,7 @@ public class ProxyVpnService extends VpnService implements Runnable {
                         InputStream socketIn = socket.getInputStream();
 
                         if (!payload.isEmpty()) {
+                            sendLog("ส่ง Custom Payload สำหรับ Handshake...");
                             String formattedPayload = payload.replace("[host_port]", host + ":" + port)
                                                              .replace("[protocol]", "HTTP/1.1");
                             socketOut.write(formattedPayload.getBytes());
@@ -95,10 +109,13 @@ public class ProxyVpnService extends VpnService implements Runnable {
                         if (readBytes > 0) {
                             out.write(buffer, 0, readBytes);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        sendLog("ข้อผิดพลาดเครือข่าย: " + e.getMessage());
+                    }
                 }
             }
         } catch (Exception e) {
+            sendLog("เกิดข้อผิดพลาดร้ายแรง: " + e.getMessage());
             e.printStackTrace();
         } finally {
             disconnect();
@@ -120,6 +137,9 @@ public class ProxyVpnService extends VpnService implements Runnable {
     }
 
     private void disconnect() {
+        if (isRunning) {
+            sendLog("กำลังหยุดบริการ VPN Service...");
+        }
         isRunning = false;
         try {
             if (vpnInterface != null) {
@@ -129,11 +149,19 @@ public class ProxyVpnService extends VpnService implements Runnable {
         } catch (Exception ignored) {}
         broadcastState(false);
         stopForeground(true);
+        sendLog("ตัดการเชื่อมต่อและปิด TUN Interface เรียบร้อยแล้ว");
     }
 
     private void broadcastState(boolean connected) {
         Intent intent = new Intent(ACTION_STATE);
         intent.putExtra("connected", connected);
+        sendBroadcast(intent);
+    }
+
+    // ฟังก์ชันยิง Log กลับไปยัง MainActivity
+    private void sendLog(String msg) {
+        Intent intent = new Intent(ACTION_LOG);
+        intent.putExtra("message", msg);
         sendBroadcast(intent);
     }
 
