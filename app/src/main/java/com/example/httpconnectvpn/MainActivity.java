@@ -59,22 +59,16 @@ public class MainActivity extends AppCompatActivity {
     private boolean isReceiverRegistered = false;
     private SharedPreferences prefs;
 
-    // โหมดการเชื่อมต่อปัจจุบัน ("http" หรือ "ssh")
-    private String currentMode = "http";
-
-    // Launcher สำหรับ Export Config
     private final ActivityResultLauncher<String> exportLauncher = registerForActivityResult(
             new ActivityResultContracts.CreateDocument("application/json"),
             this::exportConfigFile
     );
 
-    // Launcher สำหรับ Import Config
     private final ActivityResultLauncher<String[]> importLauncher = registerForActivityResult(
             new ActivityResultContracts.OpenDocument(),
             this::importConfigFile
     );
 
-    // Receiver รับสถานะ VPN และ Log
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
@@ -96,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("VpnPrefs", Context.MODE_PRIVATE);
-        currentMode = prefs.getString("connection_mode", "http");
 
         // Binding Views
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -115,10 +108,10 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        // โหลดค่าล่าสุดตามโหมด
-        loadLastConfig();
+        // โหลดค่า SSH จาก Settings มาแสดง
+        loadSshConfigToMain();
 
-        // สลับแท็บ Main / Log
+        // Tab
         if (tabLayout != null) {
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
                 @Override
@@ -190,13 +183,18 @@ public class MainActivity extends AppCompatActivity {
         updateUi();
     }
 
-    private void loadLastConfig() {
-        if ("ssh".equals(currentMode)) {
-            if (hostInput != null) hostInput.setText(prefs.getString("ssh_host", "jp6.vpnjantit.com"));
-            if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("ssh_port", 22)));
+    /** โหลดค่า SSH จาก Settings มาแสดงที่หน้าหลัก */
+    private void loadSshConfigToMain() {
+        String sshHost = prefs.getString("ssh_host", "");
+        int sshPort = prefs.getInt("ssh_port", 22);
+
+        if (sshHost != null && !sshHost.trim().isEmpty()) {
+            if (hostInput != null) hostInput.setText(sshHost);
+            if (portInput != null) portInput.setText(String.valueOf(sshPort));
         } else {
-            if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
-            if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+            // ถ้ายังไม่มีค่า SSH ให้ใช้ค่า default
+            if (hostInput != null) hostInput.setText("jp6.vpnjantit.com");
+            if (portInput != null) portInput.setText("22");
         }
     }
 
@@ -204,8 +202,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         registerLogReceiver();
-        // โหลดโหมดล่าสุดจาก Settings (ถ้ามี)
-        currentMode = prefs.getString("connection_mode", currentMode);
+        // ทุกครั้งที่กลับมาหน้าหลัก ให้ดึงค่าล่าสุดจาก Settings
+        loadSshConfigToMain();
         updateUi();
     }
 
@@ -256,11 +254,7 @@ public class MainActivity extends AppCompatActivity {
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
             JSONObject json = new JSONObject();
 
-            json.put("mode", currentMode);
-            json.put("host", hostInput != null ? hostInput.getText().toString().trim() : "");
-            json.put("port", portInput != null ? Integer.parseInt(portInput.getText().toString().trim()) : 8080);
-
-            // SSH fields
+            json.put("mode", "ssh");
             json.put("ssh_host", prefs.getString("ssh_host", ""));
             json.put("ssh_port", prefs.getInt("ssh_port", 22));
             json.put("ssh_user", prefs.getString("ssh_user", ""));
@@ -291,19 +285,10 @@ public class MainActivity extends AppCompatActivity {
 
             JSONObject json = new JSONObject(jsonStr);
 
-            currentMode = json.optString("mode", "http");
-            String host = json.optString("host", "");
-            int port = json.optInt("port", 8080);
-
-            if (hostInput != null) hostInput.setText(host);
-            if (portInput != null) portInput.setText(String.valueOf(port));
-
             prefs.edit()
-                    .putString("connection_mode", currentMode)
-                    .putString("proxy_host", host)
-                    .putInt("proxy_port", port)
-                    .putString("ssh_host", json.optString("ssh_host", host))
-                    .putInt("ssh_port", json.optInt("ssh_port", 22))
+                    .putString("connection_mode", "ssh")
+                    .putString("ssh_host", json.optString("ssh_host", json.optString("host", "")))
+                    .putInt("ssh_port", json.optInt("ssh_port", json.optInt("port", 22)))
                     .putString("ssh_user", json.optString("ssh_user", ""))
                     .putString("ssh_pass", json.optString("ssh_pass", ""))
                     .putString("payload", json.optString("payload", ""))
@@ -312,7 +297,8 @@ public class MainActivity extends AppCompatActivity {
                     .putString("dns2", json.optString("dns2", "1.1.1.1"))
                     .apply();
 
-            appendLog("✅ นำเข้า Config สำเร็จ (โหมด: " + currentMode + ")");
+            loadSshConfigToMain();
+            appendLog("✅ นำเข้า Config สำเร็จ (โหมด SSH)");
             Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
         } catch (Exception e) {
@@ -332,40 +318,55 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // บันทึกค่าปัจจุบัน
-        String host = hostInput != null ? hostInput.getText().toString().trim() : "";
-        int port = 22;
-        try {
-            if (portInput != null) {
+        // ดึงค่า SSH จาก Settings เป็นหลัก
+        String host = prefs.getString("ssh_host", "").trim();
+        int port = prefs.getInt("ssh_port", 22);
+        String username = prefs.getString("ssh_user", "").trim();
+        String password = prefs.getString("ssh_pass", "").trim();
+
+        // ถ้าใน Settings ยังว่าง ให้ลองใช้ค่าจากช่องหน้าหลัก
+        if (host.isEmpty() && hostInput != null) {
+            host = hostInput.getText().toString().trim();
+        }
+        if (port <= 0 && portInput != null) {
+            try {
                 port = Integer.parseInt(portInput.getText().toString().trim());
+            } catch (Exception ignored) {
+                port = 22;
             }
-        } catch (Exception ignored) {}
+        }
 
         if (host.isEmpty()) {
-            Toast.makeText(this, "กรุณากรอก Host", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "กรุณากรอก SSH Host ในหน้า Settings", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบ SSH Host");
             return;
         }
 
-        // บันทึกลง prefs
-        if ("ssh".equals(currentMode)) {
-            prefs.edit()
-                    .putString("ssh_host", host)
-                    .putInt("ssh_port", port)
-                    .apply();
-        } else {
-            prefs.edit()
-                    .putString("proxy_host", host)
-                    .putInt("proxy_port", port)
-                    .apply();
+        if (username.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "กรุณากรอก Username และ Password ในหน้า Settings", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบ Username หรือ Password");
+            return;
         }
 
-        appendLog("กำลังเตรียมการเชื่อมต่อ (" + currentMode.toUpperCase() + ") → " + host + ":" + port);
+        // บันทึกค่าล่าสุด
+        prefs.edit()
+                .putString("ssh_host", host)
+                .putInt("ssh_port", port)
+                .putString("connection_mode", "ssh")
+                .apply();
+
+        // อัปเดตช่องหน้าหลักให้ตรงกับค่าที่ใช้
+        if (hostInput != null) hostInput.setText(host);
+        if (portInput != null) portInput.setText(String.valueOf(port));
+
+        appendLog("กำลังเตรียมการเชื่อมต่อ (SSH) → " + host + ":" + port);
+        appendLog("Username: " + username);
 
         Intent prepare = VpnService.prepare(this);
         if (prepare != null) {
             startActivityForResult(prepare, VPN_REQUEST);
         } else {
-            startVpnService(host, port);
+            startVpnService(host, port, username, password);
         }
     }
 
@@ -374,39 +375,29 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == VPN_REQUEST) {
             if (resultCode == RESULT_OK) {
-                String host = hostInput != null ? hostInput.getText().toString().trim() : "";
-                int port = 22;
-                try {
-                    if (portInput != null) port = Integer.parseInt(portInput.getText().toString().trim());
-                } catch (Exception ignored) {}
-                startVpnService(host, port);
+                String host = prefs.getString("ssh_host", "").trim();
+                int port = prefs.getInt("ssh_port", 22);
+                String username = prefs.getString("ssh_user", "").trim();
+                String password = prefs.getString("ssh_pass", "").trim();
+                startVpnService(host, port, username, password);
             } else {
                 appendLog("ผู้ใช้ปฏิเสธการขออนุญาต VPN");
             }
         }
     }
 
-    private void startVpnService(String host, int port) {
+    private void startVpnService(String host, int port, String username, String password) {
         Intent intent = new Intent(this, ProxyVpnService.class);
-
-        if ("ssh".equals(currentMode)) {
-            // โหมด SSH (vpnjantit)
-            intent.putExtra("mode", "ssh");
-            intent.putExtra("host", host);
-            intent.putExtra("port", port);
-            intent.putExtra("username", prefs.getString("ssh_user", ""));
-            intent.putExtra("password", prefs.getString("ssh_pass", ""));
-            intent.putExtra("payload", prefs.getString("payload", ""));
-        } else {
-            // โหมด HTTP เดิม
-            intent.putExtra("mode", "http");
-            intent.putExtra("host", host);
-            intent.putExtra("port", port);
-        }
+        intent.putExtra("mode", "ssh");
+        intent.putExtra("host", host);
+        intent.putExtra("port", port);
+        intent.putExtra("username", username);
+        intent.putExtra("password", password);
+        intent.putExtra("payload", prefs.getString("payload", ""));
 
         ContextCompat.startForegroundService(this, intent);
         connected = true;
-        appendLog("ส่งคำสั่งเชื่อมต่อ Service แล้ว");
+        appendLog("ส่งคำสั่งเชื่อมต่อ Service แล้ว (โหมด SSH)");
         updateUi();
     }
 
@@ -421,9 +412,15 @@ public class MainActivity extends AppCompatActivity {
             if (powerIcon != null) powerIcon.clearColorFilter();
         }
 
-        if (proxyText != null && hostInput != null && portInput != null) {
-            String modeLabel = "ssh".equals(currentMode) ? "SSH" : "HTTP";
-            proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · " + modeLabel);
+        // แสดงค่าจาก Settings
+        String host = prefs.getString("ssh_host", "");
+        int port = prefs.getInt("ssh_port", 22);
+        if (host.isEmpty() && hostInput != null) {
+            host = hostInput.getText().toString();
+        }
+
+        if (proxyText != null) {
+            proxyText.setText(host + ":" + port + " · SSH");
         }
     }
 
