@@ -1,0 +1,29 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.httpconnectvpn'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.example.httpconnectvpn'
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.jcraft:jsch:0.1.55'
+    // สำหรับจัดการ JSON Config ของ V2Ray
+    implementation 'com.google.code.gson:gson:2.10.1'
+}

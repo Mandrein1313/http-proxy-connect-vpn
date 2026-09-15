@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- พื้นหลังวงกลมสีเข้ม -->
+    <path
+        android:fillColor="#121826"
+        android:pathData="M54,0 C83.82,0 108,24.18 108,54 C108,83.82 83.82,108 54,108 C24.18,108 0,83.82 0,54 C0,24.18 24.18,0 54,0 Z" />
+    
+    <!-- ไอคอนโลโก้แม่กุญแจและสายเชื่อมต่อ VPN สีฟ้าสด -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,30 C45.16,30 38,37.16 38,46 L38,52 L34,52 C31.79,52 30,53.79 30,56 L30,78 C30,80.21 31.79,82 34,82 L74,82 C76.21,82 78,80.21 78,78 L78,56 C78,53.79 76.21,52 74,52 L70,52 L70,46 C70,37.16 62.84,30 54,30 Z M54,36 C59.52,36 64,40.48 64,46 L64,52 L44,52 L44,46 C44,40.48 48.48,36 54,36 Z" />
+</vector>
