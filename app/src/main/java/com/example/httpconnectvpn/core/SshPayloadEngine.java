@@ -48,12 +48,11 @@ public class SshPayloadEngine implements CoreEngine {
 
         sendLog("กำลังเชื่อมต่อ SSH → " + config.host + ":" + config.port);
 
-        // 1. สร้าง SSH Session พร้อม SocketFactory Custom สำหรับ Protect Socket & Inject Payload
+        // 1. สร้าง SSH Session พร้อม Custom SocketFactory สำหรับ Protect Socket & Inject Payload
         JSch jsch = new JSch();
         sshSession = jsch.getSession(config.username, config.host, config.port);
         sshSession.setPassword(config.password);
 
-        // ตั้งค่า Custom SocketFactory ให้ JSch
         sshSession.setSocketFactory(new CustomSocketFactory());
 
         java.util.Properties props = new java.util.Properties();
@@ -84,22 +83,21 @@ public class SshPayloadEngine implements CoreEngine {
     }
 
     /**
-     * Custom SocketFactory ป้องกัน Loopback และรองรับการส่ง Payload
-     * แก้ไข Signatures ให้ถูกต้องตาม com.jcraft.jsch.SocketFactory
+     * Custom SocketFactory ป้องกัน Loopback และจัดการ Custom Payload
      */
     private class CustomSocketFactory implements SocketFactory {
         @Override
         public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
             Socket socket = new Socket();
             
-            // สำคัญที่สุด: Protect Socket ของ SSH ไม่ให้เข้า VPN Tunnel
+            // Protect Socket ของ SSH ไม่ให้วิ่งวนเข้า VPN Tunnel
             if (vpnService != null) {
                 vpnService.protect(socket);
             }
 
             socket.connect(new InetSocketAddress(host, port), 10000);
 
-            // หากมี Payload ให้ทำการ Inject HTTP Payload ก่อนทำ SSH Handshake
+            // หากมี Payload ให้ Inject HTTP Payload ก่อนเข้าสู่ SSH Handshake
             if (config.payload != null && !config.payload.trim().isEmpty()) {
                 try {
                     injectPayload(socket, host, port);
@@ -123,22 +121,49 @@ public class SshPayloadEngine implements CoreEngine {
     }
 
     /**
-     * แปลงคำสั่ง [crlf], [host], [port] และส่ง Custom Payload
+     * แปลงคำสั่ง [crlf], [host], [port], [ua], [split] และส่ง Custom Payload
      */
     private void injectPayload(Socket socket, String host, int port) throws Exception {
-        sendLog("🔹 กำลังส่ง Payload ไปยัง Bug Host...");
-        
+        sendLog("🔹 กำลังส่ง Custom Payload...");
+
+        String defaultUserAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+
+        // 1. แทนค่า Keyword พิเศษใน Payload
         String formattedPayload = config.payload
                 .replace("[crlf]", "\r\n")
                 .replace("[cr]", "\r")
                 .replace("[lf]", "\n")
                 .replace("[host]", host)
                 .replace("[port]", String.valueOf(port))
-                .replace("[host_port]", host + ":" + port);
+                .replace("[host_port]", host + ":" + port)
+                .replace("[ua]", defaultUserAgent);
 
         OutputStream os = socket.getOutputStream();
-        os.write(formattedPayload.getBytes());
-        os.flush();
+
+        // 2. จัดการการส่งข้อมูลแบบแยกส่วนกรณีมีคำสั่ง [split]
+        if (formattedPayload.contains("[split]")) {
+            String[] requests = formattedPayload.split("\\[split\\]");
+            for (int i = 0; i < requests.length; i++) {
+                os.write(requests[i].getBytes());
+                os.flush();
+                if (i < requests.length - 1) {
+                    Thread.sleep(100); // ชะลอเวลาเล็กน้อยระหว่างการส่งแต่ละ Chunk
+                }
+            }
+        } else {
+            os.write(formattedPayload.getBytes());
+            os.flush();
+        }
+
+        // 3. อ่าน Response ตอบกลับจาก HTTP Proxy / Bug Host
+        InputStream is = socket.getInputStream();
+        byte[] buffer = new byte[1024];
+        int readBytes = is.read(buffer);
+        if (readBytes > 0) {
+            String response = new String(buffer, 0, readBytes);
+            String firstLine = response.split("\r\n")[0];
+            sendLog("🔹 HTTP Response: " + firstLine);
+        }
     }
 
     private void startLocalSocksProxy(int localPort) throws Exception {
@@ -164,7 +189,6 @@ public class SshPayloadEngine implements CoreEngine {
     }
 
     private void handleSocksClient(Socket client) {
-        // ประมวลผล Traffic ผ่าน SSH Dynamic Tunnel
         try {
             client.close();
         } catch (Exception ignored) {}

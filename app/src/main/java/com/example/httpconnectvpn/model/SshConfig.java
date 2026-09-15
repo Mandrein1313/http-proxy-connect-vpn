@@ -13,6 +13,9 @@ public class SshConfig {
     public boolean useWebsocket = false;
     public int localSocksPort = 1080;
 
+    // ชื่อ Network Profile (เช่น AIS Free Net, True Unlim, DTAC)
+    public String profileName = "General Profile";
+
     public SshConfig() {}
 
     public SshConfig(String host, int port, String username, String password) {

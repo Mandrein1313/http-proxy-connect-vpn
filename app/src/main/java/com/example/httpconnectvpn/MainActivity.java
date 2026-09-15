@@ -26,6 +26,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
+import com.example.httpconnectvpn.model.SshConfig;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
@@ -47,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnConnect;
     private ImageView powerIcon;
     private TextView connectText, statusText, proxyText, logText;
+    private TextView modeText, profileText; // TextView สำหรับแสดง Payload Mode (ซ้าย) และ Network Profile (ขวา)
     private ScrollView layoutMainContainer, layoutLogContainer;
     private TabLayout tabLayout;
     private EditText hostInput, portInput;
@@ -107,6 +109,10 @@ public class MainActivity extends AppCompatActivity {
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
+
+        // Binding TextView สำหรับแสดง Payload Mode และ Profile
+        modeText = findViewById(R.id.modeText);
+        profileText = findViewById(R.id.profileText);
 
         // โหลดค่า SSH จาก Settings มาแสดง
         loadSshConfigToMain();
@@ -192,7 +198,6 @@ public class MainActivity extends AppCompatActivity {
             if (hostInput != null) hostInput.setText(sshHost);
             if (portInput != null) portInput.setText(String.valueOf(sshPort));
         } else {
-            // ถ้ายังไม่มีค่า SSH ให้ใช้ค่า default
             if (hostInput != null) hostInput.setText("ยังไม่มี");
             if (portInput != null) portInput.setText("ยังไม่มี");
         }
@@ -202,7 +207,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         registerLogReceiver();
-        // ทุกครั้งที่กลับมาหน้าหลัก ให้ดึงค่าล่าสุดจาก Settings
         loadSshConfigToMain();
         updateUi();
     }
@@ -261,6 +265,7 @@ public class MainActivity extends AppCompatActivity {
             json.put("ssh_pass", prefs.getString("ssh_pass", ""));
             json.put("payload", prefs.getString("payload", ""));
             json.put("sni", prefs.getString("sni", ""));
+            json.put("profile_name", prefs.getString("profile_name", "General Profile"));
             json.put("dns1", prefs.getString("dns1", "8.8.8.8"));
             json.put("dns2", prefs.getString("dns2", "1.1.1.1"));
 
@@ -293,6 +298,7 @@ public class MainActivity extends AppCompatActivity {
                     .putString("ssh_pass", json.optString("ssh_pass", ""))
                     .putString("payload", json.optString("payload", ""))
                     .putString("sni", json.optString("sni", ""))
+                    .putString("profile_name", json.optString("profile_name", "General Profile"))
                     .putString("dns1", json.optString("dns1", "8.8.8.8"))
                     .putString("dns2", json.optString("dns2", "1.1.1.1"))
                     .apply();
@@ -318,13 +324,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // ดึงค่า SSH จาก Settings เป็นหลัก
         String host = prefs.getString("ssh_host", "").trim();
         int port = prefs.getInt("ssh_port", 22);
         String username = prefs.getString("ssh_user", "").trim();
         String password = prefs.getString("ssh_pass", "").trim();
 
-        // ถ้าใน Settings ยังว่าง ให้ลองใช้ค่าจากช่องหน้าหลัก
         if (host.isEmpty() && hostInput != null) {
             host = hostInput.getText().toString().trim();
         }
@@ -348,14 +352,12 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // บันทึกค่าล่าสุด
         prefs.edit()
                 .putString("ssh_host", host)
                 .putInt("ssh_port", port)
                 .putString("connection_mode", "ssh")
                 .apply();
 
-        // อัปเดตช่องหน้าหลักให้ตรงกับค่าที่ใช้
         if (hostInput != null) hostInput.setText(host);
         if (portInput != null) portInput.setText(String.valueOf(port));
 
@@ -412,7 +414,6 @@ public class MainActivity extends AppCompatActivity {
             if (powerIcon != null) powerIcon.clearColorFilter();
         }
 
-        // แสดงค่าจาก Settings
         String host = prefs.getString("ssh_host", "");
         int port = prefs.getInt("ssh_port", 22);
         if (host.isEmpty() && hostInput != null) {
@@ -421,6 +422,25 @@ public class MainActivity extends AppCompatActivity {
 
         if (proxyText != null) {
             proxyText.setText(host + ":" + port + " · SSH");
+        }
+
+        // --- อัปเดต Payload Mode (ฝั่งซ้าย) และ Network Profile (ฝั่งขวา) ---
+        String payload = prefs.getString("payload", "");
+        if (modeText != null) {
+            if (payload != null && !payload.trim().isEmpty()) {
+                if (payload.contains("[split]")) {
+                    modeText.setText("HTTP Split Injector");
+                } else {
+                    modeText.setText("HTTP Injector");
+                }
+            } else {
+                modeText.setText("Direct SSH");
+            }
+        }
+
+        String profile = prefs.getString("profile_name", "AIS / True / DTAC");
+        if (profileText != null) {
+            profileText.setText(profile);
         }
     }
 
