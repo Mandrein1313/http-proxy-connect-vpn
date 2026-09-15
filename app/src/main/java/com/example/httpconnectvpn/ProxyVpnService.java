@@ -1,20 +1,23 @@
 package com.example.httpconnectvpn;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ProxyVpnService extends VpnService {
-
     public static final String ACTION_STATE = "com.example.httpconnectvpn.VPN_STATE";
-    private ParcelFileDescriptor vpnInterface;
-    private Thread vpnThread;
-    private Session jschSession;
+    private static final String TAG = "ProxyVpnService";
+
+    private ParcelFileDescriptor vpnInterface = null;
     private boolean isRunning = false;
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -23,93 +26,88 @@ public class ProxyVpnService extends VpnService {
             return START_NOT_STICKY;
         }
 
-        startVpn();
+        String host = intent != null ? intent.getStringExtra("host") : "";
+        int port = intent != null ? intent.getIntExtra("port", 8080) : 8080;
+
+        // ดำเนินการเชื่อมต่อใน Background Thread เพื่อไม่ให้ UI ค้าง
+        executorService.execute(() -> startVpnRealConnection(host, port));
+
         return START_STICKY;
     }
 
+    private void startVpnRealConnection(String host, int port) {
+        sendLog("กำลังพยายามเชื่อมต่อไปยัง Server: " + host + ":" + port + "...");
+
+        // ตรวจสอบความถูกต้องของข้อมูล Host
+        if (host == null || host.isEmpty() || host.contains("example")) {
+            sendLog("❌ ข้อผิดพลาด: กรุณากรอก Server Host / IP ให้ถูกต้องก่อนเชื่อมต่อ");
+            broadcastState(false);
+            stopSelf();
+            return;
+        }
+
+        // 1. ตรวจสอบการเชื่อมต่อ Socket จริงไปยัง Server
+        try (Socket socket = new Socket()) {
+            // ตั้งเวลา Timeout ไว้ที่ 5 วินาที
+            socket.connect(new InetSocketAddress(host, port), 5000);
+            sendLog("✅ เชื่อมต่อ Socket ไปยัง " + host + ":" + port + " สำเร็จ!");
+        } catch (Exception e) {
+            sendLog("❌ เชื่อมต่อ Server ไม่สำเร็จ: " + e.getMessage());
+            sendLog("💡 กรุณาตรวจสอบ Host/Port หรืออินเทอร์เน็ตของคุณ");
+            broadcastState(false);
+            stopSelf();
+            return;
+        }
+
+        // 2. เมื่อเชื่อมต่อ Server จริงสำเร็จ จึงเริ่มสร้าง VpnService
+        try {
+            Builder builder = new Builder();
+            builder.setSession("HTTP VPN")
+                   .addAddress("10.0.0.2", 32)
+                   .addRoute("0.0.0.0", 0)
+                   .addDnsServer("8.8.8.8");
+
+            vpnInterface = builder.establish();
+            
+            if (vpnInterface != null) {
+                isRunning = true;
+                sendLog("🚀 สร้างท่อ VPN สำเร็จ! ระบบพร้อมใช้งาน");
+                broadcastState(true);
+            } else {
+                sendLog("❌ ไม่สามารถสร้าง VPN Interface ได้");
+                broadcastState(false);
+            }
+        } catch (Exception e) {
+            sendLog("❌ เกิดข้อผิดพลาดในการเปิด VPN: " + e.getMessage());
+            broadcastState(false);
+            stopSelf();
+        }
+    }
+
+    private void stopVpn() {
+        isRunning = false;
+        if (vpnInterface != null) {
+            try {
+                vpnInterface.close();
+            } catch (Exception ignored) {}
+            vpnInterface = null;
+        }
+        sendLog("🛑 หยุดการทำงานของ VPN เรียบร้อยแล้ว");
+        broadcastState(false);
+        stopSelf();
+    }
+
     private void sendLog(String msg) {
+        Log.d(TAG, msg);
         Intent intent = new Intent(MainActivity.ACTION_LOG);
         intent.putExtra("message", msg);
         sendBroadcast(intent);
     }
 
-    private void startVpn() {
-        if (isRunning) return;
-        isRunning = true;
-
-        vpnThread = new Thread(() -> {
-            try {
-                SharedPreferences prefs = getSharedPreferences("VpnPrefs", MODE_PRIVATE);
-                String sshHost = prefs.getString("ssh_host", "");
-                int sshPort = prefs.getInt("ssh_port", 22);
-                String sshUser = prefs.getString("ssh_user", "");
-                String sshPass = prefs.getString("ssh_pass", "");
-                String dns1 = prefs.getString("dns1", "8.8.8.8");
-                String dns2 = prefs.getString("dns2", "8.8.4.4");
-
-                // 1. ตั้งค่า VPN Interface
-                Builder builder = new Builder();
-                builder.setSession("HTTP Proxy VPN")
-                        .addAddress("10.0.0.2", 24)
-                        .addRoute("0.0.0.0", 0)
-                        .addDnsServer(dns1)
-                        .addDnsServer(dns2);
-
-                vpnInterface = builder.establish();
-                sendLog("[VPN] สร้าง VPN Interface สำเร็จ");
-
-                // 2. ถ้ามีข้อมูล SSH ให้ทำการเชื่อมต่อ SSH Tunnel
-                if (!sshHost.isEmpty() && !sshUser.isEmpty()) {
-                    sendLog("[SSH] กำลังเชื่อมต่อ SSH ไปยัง " + sshHost + ":" + sshPort + "...");
-
-                    JSch jsch = new JSch();
-                    jschSession = jsch.getSession(sshUser, sshHost, sshPort);
-                    jschSession.setPassword(sshPass);
-                    jschSession.setConfig("StrictHostKeyChecking", "no");
-                    jschSession.setTimeout(15000);
-                    jschSession.connect();
-
-                    // เปิด Dynamic Port Forwarding (SOCKS Proxy ภายในเครื่องที่ Port 1080)
-                    jschSession.setPortForwardingL(1080, "127.0.0.1", 1080);
-                    sendLog("[SSH] เชื่อมต่อ SSH สำเร็จ! (Tunnel Port: 1080)");
-                } else {
-                    sendLog("[SSH] ข้ามการเชื่อมต่อ SSH (ไม่ได้ระบุ Host/User)");
-                }
-
-                // บรอดแคสต์บอก UI ว่าเชื่อมต่อแล้ว
-                Intent intent = new Intent(ACTION_STATE);
-                intent.putExtra("connected", true);
-                sendBroadcast(intent);
-
-            } catch (Exception e) {
-                sendLog("[Error] เกิดข้อผิดพลาด: " + e.getMessage());
-                stopVpn();
-            }
-        });
-
-        vpnThread.start();
-    }
-
-    private void stopVpn() {
-        isRunning = false;
-        try {
-            if (jschSession != null && jschSession.isConnected()) {
-                jschSession.disconnect();
-                sendLog("[SSH] ตัดการเชื่อมต่อ SSH เรียบร้อย");
-            }
-            if (vpnInterface != null) {
-                vpnInterface.close();
-                vpnInterface = null;
-            }
-        } catch (Exception ignored) {}
-
-        sendLog("[VPN] หยุดการทำงานเรียบร้อย");
-
+    private void broadcastState(boolean connected) {
         Intent intent = new Intent(ACTION_STATE);
-        intent.putExtra("connected", false);
+        intent.putExtra("connected", connected);
         sendBroadcast(intent);
-
-        stopSelf();
     }
 
     @Override
