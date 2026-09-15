@@ -11,7 +11,6 @@ import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -25,18 +24,24 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.httpconnectvpn.adapter.ProfileAdapter;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.tabs.TabLayout;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
@@ -47,14 +52,17 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnConnect;
     private ImageView powerIcon;
     private TextView connectText, statusText, proxyText, logText;
-    private TextView modeText, profileText;
     private ScrollView layoutMainContainer, layoutLogContainer;
     private TabLayout tabLayout;
-    private EditText hostInput, portInput;
     private BottomNavigationView bottomNavigationView;
     private MaterialToolbar toolbar;
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
+
+    // Profile Card List Components
+    private RecyclerView profileRecyclerView;
+    private ProfileAdapter profileAdapter;
+    private final List<ProfileAdapter.ProfileItem> profileList = new ArrayList<>();
 
     private boolean connected = false;
     private boolean isReceiverRegistered = false;
@@ -105,13 +113,20 @@ public class MainActivity extends AppCompatActivity {
         statusText = findViewById(R.id.statusText);
         proxyText = findViewById(R.id.proxyText);
         logText = findViewById(R.id.logText);
-       // hostInput = findViewById(R.id.hostInput);
-        //portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
-        modeText = findViewById(R.id.modeText);
-        profileText = findViewById(R.id.profileText);
 
-        loadConfigToMain();
+        // Setup RecyclerView สำหรับ Profile Card List
+        profileRecyclerView = findViewById(R.id.profileRecyclerView);
+        if (profileRecyclerView != null) {
+            profileRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+            profileAdapter = new ProfileAdapter(profileList, profile -> {
+                saveSelectedProfileToPrefs(profile);
+                updateUi();
+            });
+            profileRecyclerView.setAdapter(profileAdapter);
+        }
+
+        loadSavedProfilesList();
 
         // Tab Setup
         if (tabLayout != null) {
@@ -185,26 +200,83 @@ public class MainActivity extends AppCompatActivity {
         updateUi();
     }
 
-    private void loadConfigToMain() {
-        String mode = prefs.getString("connection_mode", "ssh");
-        if ("v2ray".equalsIgnoreCase(mode)) {
-            String address = prefs.getString("v2ray_address", "");
-            int port = prefs.getInt("v2ray_port", 443);
-            if (hostInput != null) hostInput.setText(address.isEmpty() ? "V2Ray Server" : address);
-            if (portInput != null) portInput.setText(String.valueOf(port));
-        } else {
-            String sshHost = prefs.getString("ssh_host", "");
-            int sshPort = prefs.getInt("ssh_port", 22);
-            if (hostInput != null) hostInput.setText(sshHost.isEmpty() ? "ยังไม่มี" : sshHost);
-            if (portInput != null) portInput.setText(String.valueOf(sshPort));
+    // ======================== การจัดการ Profile Cards ========================
+    private void loadSavedProfilesList() {
+        profileList.clear();
+        String jsonListStr = prefs.getString("saved_profiles_json", "[]");
+        try {
+            JSONArray array = new JSONArray(jsonListStr);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject obj = array.getJSONObject(i);
+                profileList.add(new ProfileAdapter.ProfileItem(
+                        obj.optString("id"),
+                        obj.optString("name"),
+                        obj.optString("server"),
+                        obj.optString("mode"),
+                        obj.optString("jsonConfig")
+                ));
+            }
+        } catch (Exception ignored) {}
+
+        if (profileAdapter != null) {
+            profileAdapter.notifyDataSetChanged();
         }
+    }
+
+    private void saveProfilesListToStorage() {
+        try {
+            JSONArray array = new JSONArray();
+            for (ProfileAdapter.ProfileItem item : profileList) {
+                JSONObject obj = new JSONObject();
+                obj.put("id", item.id);
+                obj.put("name", item.name);
+                obj.put("server", item.server);
+                obj.put("mode", item.mode);
+                obj.put("jsonConfig", item.jsonConfig);
+                array.put(obj);
+            }
+            prefs.edit().putString("saved_profiles_json", array.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+
+    private void saveSelectedProfileToPrefs(ProfileAdapter.ProfileItem profile) {
+        if (profile == null) return;
+        try {
+            JSONObject json = new JSONObject(profile.jsonConfig);
+            String mode = json.optString("mode", "ssh");
+
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString("profile_name", profile.name);
+
+            if ("v2ray".equalsIgnoreCase(mode) || "vmess".equalsIgnoreCase(mode)) {
+                editor.putString("connection_mode", "v2ray")
+                        .putString("v2ray_protocol", json.optString("protocol", "vmess"))
+                        .putString("v2ray_address", json.optString("address", json.optString("host", "")))
+                        .putInt("v2ray_port", json.optInt("port", 443))
+                        .putString("v2ray_id", json.optString("id", ""))
+                        .putString("v2ray_network", json.optString("network", "ws"))
+                        .putString("v2ray_path", json.optString("path", "/"));
+            } else {
+                editor.putString("connection_mode", "ssh")
+                        .putString("ssh_host", json.optString("ssh_host", json.optString("host", "")))
+                        .putInt("ssh_port", json.optInt("ssh_port", json.optInt("port", 22)))
+                        .putString("ssh_user", json.optString("ssh_user", ""))
+                        .putString("ssh_pass", json.optString("ssh_pass", ""))
+                        .putString("payload", json.optString("payload", ""))
+                        .putString("sni", json.optString("sni", ""));
+            }
+
+            editor.putString("dns1", json.optString("dns1", "8.8.8.8"))
+                  .putString("dns2", json.optString("dns2", "1.1.1.1"))
+                  .apply();
+
+        } catch (Exception ignored) {}
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         registerLogReceiver();
-        loadConfigToMain();
         updateUi();
     }
 
@@ -298,38 +370,36 @@ public class MainActivity extends AppCompatActivity {
 
             JSONObject json = new JSONObject(jsonStr);
             String mode = json.optString("mode", "ssh");
+            String profileName = json.optString("profile_name", "Profile " + (profileList.size() + 1));
 
-            SharedPreferences.Editor editor = prefs.edit();
-
+            String server, modeLabel;
             if ("v2ray".equalsIgnoreCase(mode) || "vmess".equalsIgnoreCase(mode)) {
-                editor.putString("connection_mode", "v2ray")
-                        .putString("v2ray_protocol", json.optString("protocol", "vmess"))
-                        .putString("v2ray_address", json.optString("address", json.optString("host", "")))
-                        .putInt("v2ray_port", json.optInt("port", 443))
-                        .putString("v2ray_id", json.optString("id", ""))
-                        .putString("v2ray_network", json.optString("network", "ws"))
-                        .putString("v2ray_path", json.optString("path", "/"))
-                        .putString("profile_name", json.optString("profile_name", "V2Ray Profile"));
-
-                appendLog("✅ นำเข้า Config สำเร็จ (โหมด V2Ray)");
+                String address = json.optString("address", json.optString("host", ""));
+                int port = json.optInt("port", 443);
+                server = address + ":" + port;
+                modeLabel = json.optString("protocol", "VMESS").toUpperCase();
             } else {
-                editor.putString("connection_mode", "ssh")
-                        .putString("ssh_host", json.optString("ssh_host", json.optString("host", "")))
-                        .putInt("ssh_port", json.optInt("ssh_port", json.optInt("port", 22)))
-                        .putString("ssh_user", json.optString("ssh_user", ""))
-                        .putString("ssh_pass", json.optString("ssh_pass", ""))
-                        .putString("payload", json.optString("payload", ""))
-                        .putString("sni", json.optString("sni", ""))
-                        .putString("profile_name", json.optString("profile_name", "General Profile"));
-
-                appendLog("✅ นำเข้า Config สำเร็จ (โหมด SSH)");
+                String host = json.optString("ssh_host", json.optString("host", ""));
+                int port = json.optInt("ssh_port", json.optInt("port", 22));
+                server = host + ":" + port;
+                modeLabel = "SSH";
             }
 
-            editor.putString("dns1", json.optString("dns1", "8.8.8.8"))
-                  .putString("dns2", json.optString("dns2", "1.1.1.1"))
-                  .apply();
+            ProfileAdapter.ProfileItem newItem = new ProfileAdapter.ProfileItem(
+                    String.valueOf(System.currentTimeMillis()),
+                    profileName,
+                    server,
+                    modeLabel,
+                    jsonStr
+            );
 
-            loadConfigToMain();
+            if (profileAdapter != null) {
+                profileAdapter.addProfile(newItem);
+            }
+            saveProfilesListToStorage();
+            saveSelectedProfileToPrefs(newItem);
+
+            appendLog("✅ นำเข้าโปรไฟล์การ์ดสำเร็จ: " + profileName);
             Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
         } catch (Exception e) {
@@ -364,10 +434,8 @@ public class MainActivity extends AppCompatActivity {
         String username = prefs.getString("ssh_user", "").trim();
         String password = prefs.getString("ssh_pass", "").trim();
 
-        if (host.isEmpty() && hostInput != null) host = hostInput.getText().toString().trim();
-
         if (host.isEmpty()) {
-            Toast.makeText(this, "กรุณากรอก SSH Host", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "กรุณากรอกหรือเลือก SSH Profile", Toast.LENGTH_LONG).show();
             appendLog("❌ ไม่พบ SSH Host");
             return;
         }
@@ -447,25 +515,12 @@ public class MainActivity extends AppCompatActivity {
             String address = prefs.getString("v2ray_address", "Server");
             int port = prefs.getInt("v2ray_port", 443);
 
-            if (modeText != null) modeText.setText("V2Ray (" + protocol + ")");
             if (proxyText != null) proxyText.setText(address + ":" + port + " · " + protocol);
         } else {
-            String payload = prefs.getString("payload", "");
             String host = prefs.getString("ssh_host", "Server");
             int port = prefs.getInt("ssh_port", 22);
 
-            if (modeText != null) {
-                if (payload != null && !payload.trim().isEmpty()) {
-                    modeText.setText(payload.contains("[split]") ? "HTTP Split Injector" : "HTTP Injector");
-                } else {
-                    modeText.setText("Direct SSH");
-                }
-            }
             if (proxyText != null) proxyText.setText(host + ":" + port + " · SSH");
-        }
-
-        if (profileText != null) {
-            profileText.setText(prefs.getString("profile_name", "General Profile"));
         }
     }
 

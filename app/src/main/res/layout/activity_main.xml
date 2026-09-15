@@ -6,7 +6,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- หน้าหลักของแอป -->
     <RelativeLayout
         android:id="@+id/mainRoot"
         android:layout_width="match_parent"
@@ -19,7 +18,7 @@
             android:layout_above="@id/bottomDivider"
             android:orientation="vertical">
 
-            <!-- Toolbar ด้านบน -->
+            <!-- Toolbar -->
             <com.google.android.material.appbar.MaterialToolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
@@ -38,7 +37,7 @@
                     android:textStyle="bold" />
             </com.google.android.material.appbar.MaterialToolbar>
 
-            <!-- Tab Bar สไตล์ HTTP Custom (Main / Log) -->
+            <!-- Tab Layout -->
             <com.google.android.material.tabs.TabLayout
                 android:id="@+id/tabLayout"
                 android:layout_width="match_parent"
@@ -59,18 +58,16 @@
                     android:text="Log" />
             </com.google.android.material.tabs.TabLayout>
 
-            <!-- Content Area -->
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-                <!-- TAB 1: Main (ปุ่มเชื่อมต่อ + ค่าคอนฟิก) -->
+                <!-- TAB 1: Main -->
                 <ScrollView
                     android:id="@+id/layoutMainContainer"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:fillViewport="true"
-                    android:visibility="visible">
+                    android:fillViewport="true">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -80,28 +77,28 @@
                         android:paddingEnd="20dp"
                         android:paddingBottom="16dp">
 
-                        <!-- วงกลมหลัก และปุ่ม Power -->
+                        <!-- ปุ่ม Power เชื่อมต่อ -->
                         <FrameLayout
                             android:layout_width="match_parent"
-                            android:layout_height="220dp"
-                            android:layout_marginTop="16dp">
+                            android:layout_height="200dp"
+                            android:layout_marginTop="12dp">
 
                             <View
-                                android:layout_width="190dp"
-                                android:layout_height="190dp"
+                                android:layout_width="170dp"
+                                android:layout_height="170dp"
                                 android:layout_gravity="center"
                                 android:background="@drawable/ring_outer" />
 
                             <View
-                                android:layout_width="150dp"
-                                android:layout_height="150dp"
+                                android:layout_width="130dp"
+                                android:layout_height="130dp"
                                 android:layout_gravity="center"
                                 android:background="@drawable/ring_inner" />
 
                             <LinearLayout
                                 android:id="@+id/btnConnect"
-                                android:layout_width="120dp"
-                                android:layout_height="120dp"
+                                android:layout_width="100dp"
+                                android:layout_height="100dp"
                                 android:layout_gravity="center"
                                 android:background="@drawable/power_circle"
                                 android:clickable="true"
@@ -111,8 +108,8 @@
 
                                 <ImageView
                                     android:id="@+id/powerIcon"
-                                    android:layout_width="32dp"
-                                    android:layout_height="32dp"
+                                    android:layout_width="30dp"
+                                    android:layout_height="30dp"
                                     android:src="@drawable/ic_power"
                                     app:tint="@color/text" />
 
@@ -123,7 +120,7 @@
                                     android:layout_marginTop="4dp"
                                     android:text="เชื่อมต่อ"
                                     android:textColor="@color/text"
-                                    android:textSize="14sp" />
+                                    android:textSize="13sp" />
                             </LinearLayout>
                         </FrameLayout>
 
@@ -131,49 +128,38 @@
                             android:id="@+id/statusText"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
                             android:gravity="center"
-                            android:text="ยังไม่เชื่อม"
+                            android:text="ยังไม่เชื่อมต่อ"
                             android:textColor="@color/muted"
-                            android:textSize="18sp" />
+                            android:textSize="16sp" />
 
                         <TextView
                             android:id="@+id/proxyText"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="4dp"
                             android:gravity="center"
-                            android:text="proxy.internal.example:8080 · HTTP"
+                            android:text="โปรดเลือกโปรไฟล์คอนฟิก"
                             android:textColor="@color/muted"
-                            android:textSize="14sp" />
+                            android:textSize="13sp" />
 
-                        <!-- โซนแสดง Payload Mode (ซ้าย) และ Network Profile (ขวา) -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
+                        <!-- หัวข้อรายการโปรไฟล์ -->
+                        <TextView
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="16dp"
-                            android:orientation="horizontal">
+                            android:layout_marginBottom="8dp"
+                            android:text="รายการโปรไฟล์คอนฟิก"
+                            android:textColor="@color/text"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
-                            <TextView
-                                android:id="@+id/modeText"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:gravity="start"
-                                android:text="Direct SSH"
-                                android:textColor="@color/text"
-                                android:textSize="14sp" />
-
-                            <TextView
-                                android:id="@+id/profileText"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:gravity="end"
-                                android:text="General Profile"
-                                android:textColor="@color/text"
-                                android:textSize="14sp" />
-                        </LinearLayout>
+                        <!-- รายการการ์ดโปรไฟล์ (RecyclerView) -->
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/profileRecyclerView"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false" />
 
                         <!-- การ์ดแสดงสถานะ อัปโหลด / ดาวน์โหลด / เซสชัน -->
                         <LinearLayout
@@ -186,43 +172,43 @@
                             <TextView
                                 android:id="@+id/uploadText"
                                 android:layout_width="0dp"
-                                android:layout_height="60dp"
+                                android:layout_height="55dp"
                                 android:layout_weight="1"
                                 android:background="@drawable/card"
                                 android:gravity="center"
                                 android:text="อัปโหลด\n0 B"
                                 android:textColor="@color/text"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
 
                             <TextView
                                 android:id="@+id/downloadText"
                                 android:layout_width="0dp"
-                                android:layout_height="60dp"
+                                android:layout_height="55dp"
                                 android:layout_marginStart="8dp"
                                 android:layout_weight="1"
                                 android:background="@drawable/card"
                                 android:gravity="center"
                                 android:text="ดาวน์โหลด\n0 B"
                                 android:textColor="@color/text"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
 
                             <TextView
                                 android:id="@+id/sessionText"
                                 android:layout_width="0dp"
-                                android:layout_height="60dp"
+                                android:layout_height="55dp"
                                 android:layout_marginStart="8dp"
                                 android:layout_weight="1"
                                 android:background="@drawable/card"
                                 android:gravity="center"
                                 android:text="เซสชัน\n00:00:00"
                                 android:textColor="@color/text"
-                                android:textSize="13sp" />
+                                android:textSize="12sp" />
                         </LinearLayout>
 
                     </LinearLayout>
                 </ScrollView>
 
-                <!-- TAB 2: Log Terminal (แสดงผลเต็มความสูง) -->
+                <!-- TAB 2: Log Terminal -->
                 <ScrollView
                     android:id="@+id/layoutLogContainer"
                     android:layout_width="match_parent"
@@ -244,7 +230,6 @@
             </FrameLayout>
         </LinearLayout>
 
-        <!-- เส้นแบ่งสีบางๆ (Divider Line) -->
         <View
             android:id="@+id/bottomDivider"
             android:layout_width="match_parent"
@@ -265,7 +250,6 @@
 
     </RelativeLayout>
 
-    <!-- เมนูสไลด์ด้านข้าง (Navigation Drawer) -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navigation_view"
         android:layout_width="wrap_content"
