@@ -105,8 +105,8 @@ public class MainActivity extends AppCompatActivity {
         statusText = findViewById(R.id.statusText);
         proxyText = findViewById(R.id.proxyText);
         logText = findViewById(R.id.logText);
-        hostInput = findViewById(R.id.hostInput);
-        portInput = findViewById(R.id.portInput);
+       // hostInput = findViewById(R.id.hostInput);
+        //portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
         modeText = findViewById(R.id.modeText);
         profileText = findViewById(R.id.profileText);
