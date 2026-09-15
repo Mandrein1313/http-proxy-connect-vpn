@@ -53,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean connected = false;
     private SharedPreferences prefs;
 
-    // ระบบเลือกไฟล์สำหรับการ Export / Import
     private final ActivityResultLauncher<String> exportLauncher = registerForActivityResult(
             new ActivityResultContracts.CreateDocument("application/json"),
             this::exportConfigFile
@@ -67,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context c, Intent i) {
+            if (i == null || i.getAction() == null) return;
             if (ProxyVpnService.ACTION_STATE.equals(i.getAction())) {
                 connected = i.getBooleanExtra("connected", false);
                 updateUi();
@@ -98,8 +98,8 @@ public class MainActivity extends AppCompatActivity {
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
-        hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
-        portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
+        if (hostInput != null) hostInput.setText(prefs.getString("proxy_host", "proxy.internal.example"));
+        if (portInput != null) portInput.setText(String.valueOf(prefs.getInt("proxy_port", 8080)));
 
         if (toolbar != null && drawerLayout != null) {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
@@ -142,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void appendLog(String message) {
-        if (logText != null) {
+        if (logText != null && message != null) {
             String time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
             logText.append("\n[" + time + "] " + message);
             if (logScrollView != null) {
@@ -151,30 +151,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Export ค่าคอนฟิกทั้งหมดลงไฟล์ .config
     private void exportConfigFile(Uri uri) {
         if (uri == null) return;
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
             JSONObject json = new JSONObject();
-            json.put("host", hostInput.getText().toString());
-            json.put("port", Integer.parseInt(portInput.getText().toString()));
+            json.put("host", hostInput != null ? hostInput.getText().toString() : "");
+            json.put("port", portInput != null ? Integer.parseInt(portInput.getText().toString()) : 8080);
             json.put("payload", prefs.getString("payload", ""));
             json.put("sni", prefs.getString("sni", ""));
             json.put("dns1", prefs.getString("dns1", "8.8.8.8"));
             json.put("dns2", prefs.getString("dns2", "8.8.4.4"));
 
-            os.write(json.toString(4).getBytes());
-            appendLog("ส่งออกไฟล์ คอนฟิก สำเร็จ!");
-            Toast.makeText(this, "บันทึกไฟล์คอนฟิกสำเร็จ", Toast.LENGTH_SHORT).show();
+            if (os != null) {
+                os.write(json.toString(4).getBytes());
+                appendLog("ส่งออกไฟล์ คอนฟิก สำเร็จ!");
+                Toast.makeText(this, "บันทึกไฟล์คอนฟิกสำเร็จ", Toast.LENGTH_SHORT).show();
+            }
         } catch (Exception e) {
             appendLog("เกิดข้อผิดพลาดในการส่งออกไฟล์");
         }
     }
 
-    // Import ไฟล์ .config เข้าสู่แอป
     private void importConfigFile(Uri uri) {
         if (uri == null) return;
         try (InputStream is = getContentResolver().openInputStream(uri)) {
+            if (is == null) return;
             byte[] bytes = new byte[is.available()];
             is.read(bytes);
             String jsonStr = new String(bytes);
@@ -185,8 +186,8 @@ public class MainActivity extends AppCompatActivity {
             String payload = json.optString("payload", "");
             String sni = json.optString("sni", "");
 
-            hostInput.setText(host);
-            portInput.setText(String.valueOf(port));
+            if (hostInput != null) hostInput.setText(host);
+            if (portInput != null) portInput.setText(String.valueOf(port));
 
             prefs.edit()
                     .putString("proxy_host", host)
@@ -212,13 +213,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String host = hostInput.getText().toString().trim();
-        int port;
+        String host = hostInput != null ? hostInput.getText().toString().trim() : "";
+        int port = 8080;
         try {
-            port = Integer.parseInt(portInput.getText().toString().trim());
-        } catch (Exception e) {
-            port = 8080;
-        }
+            if (portInput != null) port = Integer.parseInt(portInput.getText().toString().trim());
+        } catch (Exception ignored) {}
 
         appendLog("กำลังเตรียมการเชื่อมต่อ VPN ไปยัง " + host + ":" + port);
         prefs.edit().putString("proxy_host", host).putInt("proxy_port", port).apply();
@@ -252,7 +251,7 @@ public class MainActivity extends AppCompatActivity {
             if (powerIcon != null) powerIcon.clearColorFilter();
         }
 
-        if (proxyText != null) {
+        if (proxyText != null && hostInput != null && portInput != null) {
             proxyText.setText(hostInput.getText().toString() + ":" + portInput.getText().toString() + " · HTTP");
         }
     }

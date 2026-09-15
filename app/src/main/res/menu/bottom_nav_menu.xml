@@ -2,22 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/nav_home"
-        android:icon="@android:drawable/ic_menu_compass"
+        android:icon="@drawable/ic_home"
         android:title="หน้าแรก" />
     <item
-        android:id="@+id/nav_proxy"
-        android:icon="@android:drawable/ic_menu_preferences"
-        android:title="พร็อกซี" />
+        android:id="@+id/nav_export"
+        android:icon="@drawable/ic_settings"
+        android:title="ส่งออก คอนฟิก" />
     <item
-        android:id="@+id/nav_payload"
-        android:icon="@android:drawable/ic_menu_edit"
-        android:title="เพย์โหลด" />
-    <item
-        android:id="@+id/nav_apps"
-        android:icon="@android:drawable/ic_menu_manage"
-        android:title="แอป" />
+        android:id="@+id/nav_import"
+        android:icon="@drawable/ic_settings"
+        android:title="นำเข้า คอนฟิก" />
     <item
         android:id="@+id/nav_logs"
-        android:icon="@android:drawable/ic_menu_agenda"
+        android:icon="@drawable/ic_info"
         android:title="บันทึก" />
 </menu>
