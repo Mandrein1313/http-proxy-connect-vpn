@@ -12,12 +12,13 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SocketFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,10 +85,11 @@ public class SshPayloadEngine implements CoreEngine {
 
     /**
      * Custom SocketFactory ป้องกัน Loopback และรองรับการส่ง Payload
+     * แก้ไข Signatures ให้ถูกต้องตาม com.jcraft.jsch.SocketFactory
      */
     private class CustomSocketFactory implements SocketFactory {
         @Override
-        public Socket createSocket(String host, int port) throws Exception {
+        public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
             Socket socket = new Socket();
             
             // สำคัญที่สุด: Protect Socket ของ SSH ไม่ให้เข้า VPN Tunnel
@@ -99,27 +101,25 @@ public class SshPayloadEngine implements CoreEngine {
 
             // หากมี Payload ให้ทำการ Inject HTTP Payload ก่อนทำ SSH Handshake
             if (config.payload != null && !config.payload.trim().isEmpty()) {
-                injectPayload(socket, host, port);
+                try {
+                    injectPayload(socket, host, port);
+                } catch (Exception e) {
+                    throw new IOException("Payload Injection Failed: " + e.getMessage(), e);
+                }
             }
 
             return socket;
         }
 
         @Override
-        public InputStream getInputStream(Socket socket) throws Exception {
+        public InputStream getInputStream(Socket socket) throws IOException {
             return socket.getInputStream();
         }
 
         @Override
-        public OutputStream getOutputStream(Socket socket) throws Exception {
+        public OutputStream getOutputStream(Socket socket) throws IOException {
             return socket.getOutputStream();
         }
-
-        @Override
-        public void setInputStream(InputStream stream) {}
-
-        @Override
-        public void setOutputStream(OutputStream stream) {}
     }
 
     /**
