@@ -111,11 +111,11 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onTabSelected(TabLayout.Tab tab) {
                     if (tab.getPosition() == 0) {
-                        layoutMainContainer.setVisibility(View.VISIBLE);
-                        layoutLogContainer.setVisibility(View.GONE);
+                        if (layoutMainContainer != null) layoutMainContainer.setVisibility(View.VISIBLE);
+                        if (layoutLogContainer != null) layoutLogContainer.setVisibility(View.GONE);
                     } else {
-                        layoutMainContainer.setVisibility(View.GONE);
-                        layoutLogContainer.setVisibility(View.VISIBLE);
+                        if (layoutMainContainer != null) layoutMainContainer.setVisibility(View.GONE);
+                        if (layoutLogContainer != null) layoutLogContainer.setVisibility(View.VISIBLE);
                     }
                 }
                 @Override public void onTabUnselected(TabLayout.Tab tab) {}
@@ -127,12 +127,16 @@ public class MainActivity extends AppCompatActivity {
             toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
-        // เพิ่มการคลิกเมนูด้านข้าง (Navigation Drawer)
+        // จัดการคลิกเมนูด้านข้าง (Navigation Drawer)
         if (navigationView != null) {
             navigationView.setNavigationItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_settings) {
                     startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                } else if (id == R.id.nav_home) {
+                    if (tabLayout != null && tabLayout.getTabAt(0) != null) {
+                        tabLayout.getTabAt(0).select();
+                    }
                 }
                 if (drawerLayout != null) {
                     drawerLayout.closeDrawer(GravityCompat.START);
@@ -141,11 +145,14 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // จัดการคลิกเมนูด้านล่าง (Bottom Navigation)
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == R.id.nav_home) {
-                    if (tabLayout != null) tabLayout.getTabAt(0).select();
+                    if (tabLayout != null && tabLayout.getTabAt(0) != null) {
+                        tabLayout.getTabAt(0).select();
+                    }
                     return true;
                 } else if (id == R.id.nav_export) {
                     exportLauncher.launch("vpn_config.config");
@@ -154,7 +161,9 @@ public class MainActivity extends AppCompatActivity {
                     importLauncher.launch(new String[]{"*/*"});
                     return true;
                 } else if (id == R.id.nav_logs) {
-                    if (tabLayout != null) tabLayout.getTabAt(1).select();
+                    if (tabLayout != null && tabLayout.getTabAt(1) != null) {
+                        tabLayout.getTabAt(1).select();
+                    }
                     return true;
                 }
                 return false;
