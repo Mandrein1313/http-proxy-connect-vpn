@@ -26,7 +26,6 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
-import com.example.httpconnectvpn.model.SshConfig;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
@@ -48,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout btnConnect;
     private ImageView powerIcon;
     private TextView connectText, statusText, proxyText, logText;
-    private TextView modeText, profileText; // TextView สำหรับแสดง Payload Mode (ซ้าย) และ Network Profile (ขวา)
+    private TextView modeText, profileText;
     private ScrollView layoutMainContainer, layoutLogContainer;
     private TabLayout tabLayout;
     private EditText hostInput, portInput;
@@ -109,15 +108,12 @@ public class MainActivity extends AppCompatActivity {
         hostInput = findViewById(R.id.hostInput);
         portInput = findViewById(R.id.portInput);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
-
-        // Binding TextView สำหรับแสดง Payload Mode และ Profile
         modeText = findViewById(R.id.modeText);
         profileText = findViewById(R.id.profileText);
 
-        // โหลดค่า SSH จาก Settings มาแสดง
-        loadSshConfigToMain();
+        loadConfigToMain();
 
-        // Tab
+        // Tab Setup
         if (tabLayout != null) {
             tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
                 @Override
@@ -189,17 +185,18 @@ public class MainActivity extends AppCompatActivity {
         updateUi();
     }
 
-    /** โหลดค่า SSH จาก Settings มาแสดงที่หน้าหลัก */
-    private void loadSshConfigToMain() {
-        String sshHost = prefs.getString("ssh_host", "");
-        int sshPort = prefs.getInt("ssh_port", 22);
-
-        if (sshHost != null && !sshHost.trim().isEmpty()) {
-            if (hostInput != null) hostInput.setText(sshHost);
-            if (portInput != null) portInput.setText(String.valueOf(sshPort));
+    private void loadConfigToMain() {
+        String mode = prefs.getString("connection_mode", "ssh");
+        if ("v2ray".equalsIgnoreCase(mode)) {
+            String address = prefs.getString("v2ray_address", "");
+            int port = prefs.getInt("v2ray_port", 443);
+            if (hostInput != null) hostInput.setText(address.isEmpty() ? "V2Ray Server" : address);
+            if (portInput != null) portInput.setText(String.valueOf(port));
         } else {
-            if (hostInput != null) hostInput.setText("ยังไม่มี");
-            if (portInput != null) portInput.setText("ยังไม่มี");
+            String sshHost = prefs.getString("ssh_host", "");
+            int sshPort = prefs.getInt("ssh_port", 22);
+            if (hostInput != null) hostInput.setText(sshHost.isEmpty() ? "ยังไม่มี" : sshHost);
+            if (portInput != null) portInput.setText(String.valueOf(sshPort));
         }
     }
 
@@ -207,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         registerLogReceiver();
-        loadSshConfigToMain();
+        loadConfigToMain();
         updateUi();
     }
 
@@ -257,14 +254,25 @@ public class MainActivity extends AppCompatActivity {
         if (uri == null) return;
         try (OutputStream os = getContentResolver().openOutputStream(uri)) {
             JSONObject json = new JSONObject();
+            String mode = prefs.getString("connection_mode", "ssh");
+            json.put("mode", mode);
 
-            json.put("mode", "ssh");
-            json.put("ssh_host", prefs.getString("ssh_host", ""));
-            json.put("ssh_port", prefs.getInt("ssh_port", 22));
-            json.put("ssh_user", prefs.getString("ssh_user", ""));
-            json.put("ssh_pass", prefs.getString("ssh_pass", ""));
-            json.put("payload", prefs.getString("payload", ""));
-            json.put("sni", prefs.getString("sni", ""));
+            if ("v2ray".equalsIgnoreCase(mode)) {
+                json.put("protocol", prefs.getString("v2ray_protocol", "vmess"));
+                json.put("address", prefs.getString("v2ray_address", ""));
+                json.put("port", prefs.getInt("v2ray_port", 443));
+                json.put("id", prefs.getString("v2ray_id", ""));
+                json.put("network", prefs.getString("v2ray_network", "ws"));
+                json.put("path", prefs.getString("v2ray_path", "/"));
+            } else {
+                json.put("ssh_host", prefs.getString("ssh_host", ""));
+                json.put("ssh_port", prefs.getInt("ssh_port", 22));
+                json.put("ssh_user", prefs.getString("ssh_user", ""));
+                json.put("ssh_pass", prefs.getString("ssh_pass", ""));
+                json.put("payload", prefs.getString("payload", ""));
+                json.put("sni", prefs.getString("sni", ""));
+            }
+
             json.put("profile_name", prefs.getString("profile_name", "General Profile"));
             json.put("dns1", prefs.getString("dns1", "8.8.8.8"));
             json.put("dns2", prefs.getString("dns2", "1.1.1.1"));
@@ -289,22 +297,39 @@ public class MainActivity extends AppCompatActivity {
             String jsonStr = new String(bytes);
 
             JSONObject json = new JSONObject(jsonStr);
+            String mode = json.optString("mode", "ssh");
 
-            prefs.edit()
-                    .putString("connection_mode", "ssh")
-                    .putString("ssh_host", json.optString("ssh_host", json.optString("host", "")))
-                    .putInt("ssh_port", json.optInt("ssh_port", json.optInt("port", 22)))
-                    .putString("ssh_user", json.optString("ssh_user", ""))
-                    .putString("ssh_pass", json.optString("ssh_pass", ""))
-                    .putString("payload", json.optString("payload", ""))
-                    .putString("sni", json.optString("sni", ""))
-                    .putString("profile_name", json.optString("profile_name", "General Profile"))
-                    .putString("dns1", json.optString("dns1", "8.8.8.8"))
-                    .putString("dns2", json.optString("dns2", "1.1.1.1"))
-                    .apply();
+            SharedPreferences.Editor editor = prefs.edit();
 
-            loadSshConfigToMain();
-            appendLog("✅ นำเข้า Config สำเร็จ (โหมด SSH)");
+            if ("v2ray".equalsIgnoreCase(mode) || "vmess".equalsIgnoreCase(mode)) {
+                editor.putString("connection_mode", "v2ray")
+                        .putString("v2ray_protocol", json.optString("protocol", "vmess"))
+                        .putString("v2ray_address", json.optString("address", json.optString("host", "")))
+                        .putInt("v2ray_port", json.optInt("port", 443))
+                        .putString("v2ray_id", json.optString("id", ""))
+                        .putString("v2ray_network", json.optString("network", "ws"))
+                        .putString("v2ray_path", json.optString("path", "/"))
+                        .putString("profile_name", json.optString("profile_name", "V2Ray Profile"));
+
+                appendLog("✅ นำเข้า Config สำเร็จ (โหมด V2Ray)");
+            } else {
+                editor.putString("connection_mode", "ssh")
+                        .putString("ssh_host", json.optString("ssh_host", json.optString("host", "")))
+                        .putInt("ssh_port", json.optInt("ssh_port", json.optInt("port", 22)))
+                        .putString("ssh_user", json.optString("ssh_user", ""))
+                        .putString("ssh_pass", json.optString("ssh_pass", ""))
+                        .putString("payload", json.optString("payload", ""))
+                        .putString("sni", json.optString("sni", ""))
+                        .putString("profile_name", json.optString("profile_name", "General Profile"));
+
+                appendLog("✅ นำเข้า Config สำเร็จ (โหมด SSH)");
+            }
+
+            editor.putString("dns1", json.optString("dns1", "8.8.8.8"))
+                  .putString("dns2", json.optString("dns2", "1.1.1.1"))
+                  .apply();
+
+            loadConfigToMain();
             Toast.makeText(this, "นำเข้า Config สำเร็จ", Toast.LENGTH_SHORT).show();
             updateUi();
         } catch (Exception e) {
@@ -324,83 +349,84 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        String mode = prefs.getString("connection_mode", "ssh");
+
+        if ("v2ray".equalsIgnoreCase(mode)) {
+            startV2RayService();
+        } else {
+            startSshService();
+        }
+    }
+
+    private void startSshService() {
         String host = prefs.getString("ssh_host", "").trim();
         int port = prefs.getInt("ssh_port", 22);
         String username = prefs.getString("ssh_user", "").trim();
         String password = prefs.getString("ssh_pass", "").trim();
 
-        if (host.isEmpty() && hostInput != null) {
-            host = hostInput.getText().toString().trim();
-        }
-        if (port <= 0 && portInput != null) {
-            try {
-                port = Integer.parseInt(portInput.getText().toString().trim());
-            } catch (Exception ignored) {
-                port = 22;
-            }
-        }
+        if (host.isEmpty() && hostInput != null) host = hostInput.getText().toString().trim();
 
         if (host.isEmpty()) {
-            Toast.makeText(this, "กรุณากรอก SSH Host ในหน้า Settings", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "กรุณากรอก SSH Host", Toast.LENGTH_LONG).show();
             appendLog("❌ ไม่พบ SSH Host");
             return;
         }
-
-        if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "กรุณากรอก Username และ Password ในหน้า Settings", Toast.LENGTH_LONG).show();
-            appendLog("❌ ไม่พบ Username หรือ Password");
-            return;
-        }
-
-        prefs.edit()
-                .putString("ssh_host", host)
-                .putInt("ssh_port", port)
-                .putString("connection_mode", "ssh")
-                .apply();
-
-        if (hostInput != null) hostInput.setText(host);
-        if (portInput != null) portInput.setText(String.valueOf(port));
-
-        appendLog("กำลังเตรียมการเชื่อมต่อ (SSH) → " + host + ":" + port);
-        appendLog("Username: " + username);
 
         Intent prepare = VpnService.prepare(this);
         if (prepare != null) {
             startActivityForResult(prepare, VPN_REQUEST);
         } else {
-            startVpnService(host, port, username, password);
+            Intent intent = new Intent(this, ProxyVpnService.class);
+            intent.putExtra("mode", "ssh");
+            intent.putExtra("host", host);
+            intent.putExtra("port", port);
+            intent.putExtra("username", username);
+            intent.putExtra("password", password);
+            intent.putExtra("payload", prefs.getString("payload", ""));
+
+            ContextCompat.startForegroundService(this, intent);
+            connected = true;
+            appendLog("กำลังเชื่อมต่อ (SSH) → " + host + ":" + port);
+            updateUi();
+        }
+    }
+
+    private void startV2RayService() {
+        String address = prefs.getString("v2ray_address", "").trim();
+        int port = prefs.getInt("v2ray_port", 443);
+
+        if (address.isEmpty()) {
+            Toast.makeText(this, "ไม่พบคอนฟิก V2Ray Address", Toast.LENGTH_LONG).show();
+            appendLog("❌ ไม่พบ V2Ray Address");
+            return;
+        }
+
+        Intent prepare = VpnService.prepare(this);
+        if (prepare != null) {
+            startActivityForResult(prepare, VPN_REQUEST);
+        } else {
+            Intent intent = new Intent(this, ProxyVpnService.class);
+            intent.putExtra("mode", "v2ray");
+            intent.putExtra("address", address);
+            intent.putExtra("port", port);
+            intent.putExtra("id", prefs.getString("v2ray_id", ""));
+            intent.putExtra("protocol", prefs.getString("v2ray_protocol", "vmess"));
+
+            ContextCompat.startForegroundService(this, intent);
+            connected = true;
+            appendLog("กำลังเชื่อมต่อ (V2Ray) → " + address + ":" + port);
+            updateUi();
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == VPN_REQUEST) {
-            if (resultCode == RESULT_OK) {
-                String host = prefs.getString("ssh_host", "").trim();
-                int port = prefs.getInt("ssh_port", 22);
-                String username = prefs.getString("ssh_user", "").trim();
-                String password = prefs.getString("ssh_pass", "").trim();
-                startVpnService(host, port, username, password);
-            } else {
-                appendLog("ผู้ใช้ปฏิเสธการขออนุญาต VPN");
-            }
+        if (requestCode == VPN_REQUEST && resultCode == RESULT_OK) {
+            toggleVpn();
+        } else if (requestCode == VPN_REQUEST) {
+            appendLog("ผู้ใช้ปฏิเสธการขออนุญาต VPN");
         }
-    }
-
-    private void startVpnService(String host, int port, String username, String password) {
-        Intent intent = new Intent(this, ProxyVpnService.class);
-        intent.putExtra("mode", "ssh");
-        intent.putExtra("host", host);
-        intent.putExtra("port", port);
-        intent.putExtra("username", username);
-        intent.putExtra("password", password);
-        intent.putExtra("payload", prefs.getString("payload", ""));
-
-        ContextCompat.startForegroundService(this, intent);
-        connected = true;
-        appendLog("ส่งคำสั่งเชื่อมต่อ Service แล้ว (โหมด SSH)");
-        updateUi();
     }
 
     private void updateUi() {
@@ -414,33 +440,32 @@ public class MainActivity extends AppCompatActivity {
             if (powerIcon != null) powerIcon.clearColorFilter();
         }
 
-        String host = prefs.getString("ssh_host", "");
-        int port = prefs.getInt("ssh_port", 22);
-        if (host.isEmpty() && hostInput != null) {
-            host = hostInput.getText().toString();
-        }
+        String mode = prefs.getString("connection_mode", "ssh");
 
-        if (proxyText != null) {
-            proxyText.setText(host + ":" + port + " · SSH");
-        }
+        if ("v2ray".equalsIgnoreCase(mode)) {
+            String protocol = prefs.getString("v2ray_protocol", "VMess").toUpperCase();
+            String address = prefs.getString("v2ray_address", "Server");
+            int port = prefs.getInt("v2ray_port", 443);
 
-        // --- อัปเดต Payload Mode (ฝั่งซ้าย) และ Network Profile (ฝั่งขวา) ---
-        String payload = prefs.getString("payload", "");
-        if (modeText != null) {
-            if (payload != null && !payload.trim().isEmpty()) {
-                if (payload.contains("[split]")) {
-                    modeText.setText("HTTP Split Injector");
+            if (modeText != null) modeText.setText("V2Ray (" + protocol + ")");
+            if (proxyText != null) proxyText.setText(address + ":" + port + " · " + protocol);
+        } else {
+            String payload = prefs.getString("payload", "");
+            String host = prefs.getString("ssh_host", "Server");
+            int port = prefs.getInt("ssh_port", 22);
+
+            if (modeText != null) {
+                if (payload != null && !payload.trim().isEmpty()) {
+                    modeText.setText(payload.contains("[split]") ? "HTTP Split Injector" : "HTTP Injector");
                 } else {
-                    modeText.setText("HTTP Injector");
+                    modeText.setText("Direct SSH");
                 }
-            } else {
-                modeText.setText("Direct SSH");
             }
+            if (proxyText != null) proxyText.setText(host + ":" + port + " · SSH");
         }
 
-        String profile = prefs.getString("profile_name", "AIS / True / DTAC");
         if (profileText != null) {
-            profileText.setText(profile);
+            profileText.setText(prefs.getString("profile_name", "General Profile"));
         }
     }
 

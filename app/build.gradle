@@ -24,4 +24,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'com.jcraft:jsch:0.1.55'
+    // สำหรับจัดการ JSON Config ของ V2Ray
+    implementation 'com.google.code.gson:gson:2.10.1'
 }
