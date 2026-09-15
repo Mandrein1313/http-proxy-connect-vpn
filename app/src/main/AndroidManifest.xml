@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- สิทธิ์การใช้งานระบบเครือข่ายและ Foreground Service -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- เพิ่มสิทธิ์แจ้งเตือนสำหรับ Android 13+ (ป้องกันแอปเด้งเวลาเริ่ม Service) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
-        android:roundIcon="@drawable/ic_launcher"
         android:label="HTTP VPN"
+        android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.HttpConnectVpn">
 
@@ -40,10 +43,13 @@
             <intent-filter>
                 <action android:name="android.net.VpnService" />
             </intent-filter>
+
+            <!-- กำหนด Subtype สำหรับ Foreground Service แบบ Special Use -->
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="vpn_tunnel" />
         </service>
 
     </application>
+
 </manifest>
